@@ -96,7 +96,7 @@ Custom dice system:
 | Role | Name |
 |------|------|
 | **Lead Developer** | Pavel Sedov ([@Pashadark](https://github.com/Pashadark)) |
-| **Game Developer** | Andrey Chernyshov |
+| **Game Developer** | Andrey Chernyshev |
 | **Game Director** | Roman Prokofiev |
 | **Backer** | Ruslan Aisin |
 
