@@ -99,7 +99,7 @@ Custom dice system:
 | **Game Developer** | Andrey Chernyshev |
 | **Game Director** | Roman Prokofiev |
 | **Backer** | Ruslan Aisin |
-
+| **Backer** | Ilya Burau |
 ---
 
 ## 📜 LICENSE
