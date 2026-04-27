@@ -705,6 +705,8 @@ async def end_battle_victory(update: Update, context: ContextTypes.DEFAULT_TYPE,
     battle_log = context.user_data.get("tunnel_battle_log", "")
     
     loot = process_loot(battle_state["monster_id"])
+    from handlers.inventory import add_action_history
+    add_action_history(user_id, f"Убит {monster['name']}", monster.get('icon', '👹'))
     add_run_loot(user_id, loot["crumbs"], monster.get("xp", monster.get("base_xp", 10)))
     update_character_stats(user_id, current_health=battle_state["player_hp"])
     

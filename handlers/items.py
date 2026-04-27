@@ -707,6 +707,22 @@ EQUIPMENT = {
         "icon": "🏅", "price": 27000,
         "lore": "Тяжёлый медальон с изображением крысиной головы. Пока не прольётся первая кровь, все видят в тебе невинную Мышь."
     },
+    "ring_of_regeneration": {
+        "name": "Кольцо регенерации", "type": "equipment", "slot": "accessory",
+        "role": "all", "rarity": "rare",
+        "desc": "+1 к ловкости. +5 HP/час к лечению.",
+        "effect": {"agility": 1, "regen": 5},
+        "icon": "💍", "price": 3000,
+        "lore": "Тёплое золотое кольцо. Пульсирует в такт сердцебиению."
+    },
+    "amulet_of_health": {
+        "name": "Амулет здоровья", "type": "equipment", "slot": "accessory",
+        "role": "all", "rarity": "epic",
+        "desc": "+10 HP/час к лечению.",
+        "effect": {"regen": 10},
+        "icon": "📿", "price": 8000,
+        "lore": "Древний амулет с руной жизни. Его тепло ускоряет заживление ран."
+    },
     "stinky_sock": {
         "name": "Вонючий носок", "type": "equipment", "slot": "accessory",
         "role": "all", "rarity": "common",
@@ -1178,7 +1194,7 @@ CONSUMABLES["smoke_bomb"]["craftable"] = True
 CONSUMABLES["smoke_bomb"]["craft_materials"] = {"wall_soot": 3, "cheese_crust": 1, "empty_vial": 1}
 
 # ========== ВСЕ ПРЕДМЕТЫ ==========
-ALL_ITEMS = {**RESOURCES, **EQUIPMENT, **CONSUMABLES, **CHESTS}
+ALL_ITEMS = {**RESOURCES, **EQUIPMENT, **CONSUMABLES, **CHESTS, **RECIPES}
 
 # ========== ШАНСЫ ВЫПАДЕНИЯ ==========
 DROP_CHANCES = {

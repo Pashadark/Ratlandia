@@ -24,7 +24,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 2,
         "base_crumbs": 5,
-        "base_xp": 3,
+        "base_xp": 15,
         "ability": None,
         "ability_desc": None,
         "icon": "🦔",
@@ -33,17 +33,19 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.0},
             "items": [
-                {"item_id": "leather_vest", "chance": 8},
-                {"item_id": "cheese_wedge_hat", "chance": 4},
+                {"item_id": "leather_vest", "chance": 5},
+                {"item_id": "cheese_wedge_hat", "chance": 3},
                 {"item_id": "common_chest", "chance": 2},
+                {"item_id": "recipe_cheese_sword", "chance": 4},
+                {"item_id": "recipe_leather_vest", "chance": 4},
             ],
             "resources": [
-                {"item_id": "stone_shard", "chance": 40},
-                {"item_id": "mouse_bone", "chance": 30},
-                {"item_id": "rat_pelt", "chance": 20},
-                {"item_id": "copper_scrap", "chance": 15},
-                {"item_id": "cheese_crust", "chance": 20},
-                {"item_id": "bread_crumb", "chance": 15},
+                {"item_id": "stone_shard", "chance": 25},
+                {"item_id": "mouse_bone", "chance": 20},
+                {"item_id": "rat_pelt", "chance": 15},
+                {"item_id": "copper_scrap", "chance": 10},
+                {"item_id": "cheese_crust", "chance": 15},
+                {"item_id": "bread_crumb", "chance": 10},
             ]
         },
     },
@@ -56,7 +58,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 3,
         "base_crumbs": 4,
-        "base_xp": 2,
+        "base_xp": 12,
         "ability": "curl",
         "ability_desc": "_Сворачивается в клубок при HP < 50%_",
         "icon": "🪲",
@@ -65,16 +67,18 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.0},
             "items": [
-                {"item_id": "gambeson", "chance": 6},
-                {"item_id": "bubble_wrap", "chance": 8},
+                {"item_id": "gambeson", "chance": 4},
+                {"item_id": "bubble_wrap", "chance": 5},
+                {"item_id": "recipe_gambeson", "chance": 4},
+                {"item_id": "recipe_poison_cheese", "chance": 3},
             ],
             "resources": [
-                {"item_id": "stone_shard", "chance": 35},
-                {"item_id": "copper_scrap", "chance": 20},
-                {"item_id": "rat_incisor", "chance": 25},
-                {"item_id": "spider_web", "chance": 20},
-                {"item_id": "linen_scrap", "chance": 15},
-                {"item_id": "moldy_crumb", "chance": 20},
+                {"item_id": "stone_shard", "chance": 20},
+                {"item_id": "copper_scrap", "chance": 15},
+                {"item_id": "rat_incisor", "chance": 15},
+                {"item_id": "spider_web", "chance": 12},
+                {"item_id": "linen_scrap", "chance": 10},
+                {"item_id": "moldy_crumb", "chance": 12},
             ]
         },
     },
@@ -87,7 +91,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 1,
         "base_crumbs": 6,
-        "base_xp": 4,
+        "base_xp": 18,
         "ability": "regeneration",
         "ability_desc": "_Восстанавливает 1 HP каждый ход_",
         "icon": "🪱",
@@ -96,16 +100,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.0},
             "items": [
-                {"item_id": "holy_water", "chance": 6},
-                {"item_id": "poison_vial", "chance": 4},
+                {"item_id": "holy_water", "chance": 4},
+                {"item_id": "poison_vial", "chance": 3},
+                {"item_id": "recipe_cheese_sword", "chance": 3},
             ],
             "resources": [
-                {"item_id": "mouse_bone", "chance": 35},
-                {"item_id": "fish_spine", "chance": 25},
-                {"item_id": "rat_pelt", "chance": 15},
-                {"item_id": "clean_water", "chance": 25},
-                {"item_id": "basement_mushroom", "chance": 20},
-                {"item_id": "empty_vial", "chance": 10},
+                {"item_id": "mouse_bone", "chance": 20},
+                {"item_id": "fish_spine", "chance": 15},
+                {"item_id": "rat_pelt", "chance": 10},
+                {"item_id": "clean_water", "chance": 15},
+                {"item_id": "basement_mushroom", "chance": 12},
+                {"item_id": "empty_vial", "chance": 8},
             ]
         },
     },
@@ -118,7 +123,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 2,
         "max_damage": 4,
         "base_crumbs": 10,
-        "base_xp": 6,
+        "base_xp": 25,
         "ability": "fast",
         "ability_desc": "_20% шанс атаковать дважды_",
         "icon": "🐀",
@@ -127,17 +132,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.5},
             "items": [
-                {"item_id": "lucky_coin", "chance": 12},
-                {"item_id": "ninja_mask", "chance": 4},
+                {"item_id": "lucky_coin", "chance": 8},
+                {"item_id": "ninja_mask", "chance": 3},
             ],
             "resources": [
-                {"item_id": "rat_pelt", "chance": 30},
-                {"item_id": "rat_incisor", "chance": 30},
-                {"item_id": "copper_scrap", "chance": 25},
-                {"item_id": "leather_scrap", "chance": 20},
-                {"item_id": "wool_clump", "chance": 15},
-                {"item_id": "pigeon_feather", "chance": 15},
-                {"item_id": "smooth_pebble", "chance": 10},
+                {"item_id": "rat_pelt", "chance": 20},
+                {"item_id": "rat_incisor", "chance": 20},
+                {"item_id": "copper_scrap", "chance": 15},
+                {"item_id": "leather_scrap", "chance": 12},
+                {"item_id": "wool_clump", "chance": 10},
+                {"item_id": "pigeon_feather", "chance": 10},
+                {"item_id": "smooth_pebble", "chance": 8},
             ]
         },
     },
@@ -150,7 +155,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 0,
         "max_damage": 2,
         "base_crumbs": 3,
-        "base_xp": 5,
+        "base_xp": 20,
         "ability": "spores",
         "ability_desc": "_30% шанс отравить на 2 хода_",
         "icon": "🍄",
@@ -159,16 +164,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 0.8},
             "items": [
-                {"item_id": "poison_cheese", "chance": 15},
-                {"item_id": "rat_poison_antidote", "chance": 8},
+                {"item_id": "poison_cheese", "chance": 10},
+                {"item_id": "rat_poison_antidote", "chance": 5},
+                {"item_id": "recipe_poison_cheese", "chance": 5},
             ],
             "resources": [
-                {"item_id": "moldy_crumb", "chance": 40},
-                {"item_id": "basement_mushroom", "chance": 35},
-                {"item_id": "empty_vial", "chance": 15},
-                {"item_id": "rat_poison", "chance": 10},
-                {"item_id": "spider_web", "chance": 15},
-                {"item_id": "candle_stub", "chance": 10},
+                {"item_id": "moldy_crumb", "chance": 25},
+                {"item_id": "basement_mushroom", "chance": 20},
+                {"item_id": "empty_vial", "chance": 10},
+                {"item_id": "rat_poison", "chance": 8},
+                {"item_id": "spider_web", "chance": 10},
+                {"item_id": "candle_stub", "chance": 8},
             ]
         },
     },
@@ -182,7 +188,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 2,
         "max_damage": 5,
         "base_crumbs": 15,
-        "base_xp": 10,
+        "base_xp": 40,
         "ability": "block",
         "ability_desc": "_Раз в 3 хода блокирует атаку_",
         "icon": "🐀",
@@ -191,18 +197,20 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.5},
             "items": [
-                {"item_id": "rat_dagger", "chance": 10},
-                {"item_id": "rat_ears", "chance": 8},
-                {"item_id": "rare_chest", "chance": 3},
+                {"item_id": "rat_dagger", "chance": 6},
+                {"item_id": "rat_ears", "chance": 5},
+                {"item_id": "rare_chest", "chance": 2},
+                {"item_id": "recipe_rat_dagger", "chance": 5},
+                {"item_id": "recipe_viking_helmet", "chance": 5},
             ],
             "resources": [
-                {"item_id": "iron_gear", "chance": 30},
-                {"item_id": "bronze_alloy", "chance": 25},
-                {"item_id": "rat_pelt", "chance": 25},
-                {"item_id": "rat_incisor", "chance": 20},
-                {"item_id": "smoked_lard", "chance": 15},
-                {"item_id": "spider_silk", "chance": 15},
-                {"item_id": "mole_skull", "chance": 10},
+                {"item_id": "iron_gear", "chance": 20},
+                {"item_id": "bronze_alloy", "chance": 15},
+                {"item_id": "rat_pelt", "chance": 15},
+                {"item_id": "rat_incisor", "chance": 12},
+                {"item_id": "smoked_lard", "chance": 10},
+                {"item_id": "spider_silk", "chance": 10},
+                {"item_id": "mole_skull", "chance": 8},
             ]
         },
     },
@@ -215,7 +223,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 3,
         "base_crumbs": 12,
-        "base_xp": 12,
+        "base_xp": 30,
         "ability": "many_legs",
         "ability_desc": "_Всегда атакует дважды_",
         "icon": "🐛",
@@ -224,16 +232,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.2},
             "items": [
-                {"item_id": "chainmail", "chance": 8},
-                {"item_id": "poison_vial", "chance": 10},
+                {"item_id": "chainmail", "chance": 5},
+                {"item_id": "poison_vial", "chance": 6},
+                {"item_id": "recipe_chainmail", "chance": 5},
             ],
             "resources": [
-                {"item_id": "fish_spine", "chance": 30},
-                {"item_id": "rat_tail_vertebra", "chance": 25},
-                {"item_id": "bat_membrane", "chance": 20},
-                {"item_id": "iron_gear", "chance": 15},
-                {"item_id": "wall_soot", "chance": 20},
-                {"item_id": "honey_drop", "chance": 10},
+                {"item_id": "fish_spine", "chance": 20},
+                {"item_id": "rat_tail_vertebra", "chance": 15},
+                {"item_id": "bat_membrane", "chance": 12},
+                {"item_id": "iron_gear", "chance": 10},
+                {"item_id": "wall_soot", "chance": 12},
+                {"item_id": "honey_drop", "chance": 8},
             ]
         },
     },
@@ -246,7 +255,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 2,
         "max_damage": 3,
         "base_crumbs": 18,
-        "base_xp": 14,
+        "base_xp": 45,
         "ability": "hard_shell",
         "ability_desc": "_Каждую 3-ю атаку игнорирует_",
         "icon": "🪲",
@@ -255,17 +264,19 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.5},
             "items": [
-                {"item_id": "turtle_shell", "chance": 8},
-                {"item_id": "bulletproof_vest", "chance": 6},
-                {"item_id": "rare_chest", "chance": 4},
+                {"item_id": "turtle_shell", "chance": 5},
+                {"item_id": "bulletproof_vest", "chance": 4},
+                {"item_id": "rare_chest", "chance": 2},
+                {"item_id": "recipe_viking_helmet", "chance": 5},
+                {"item_id": "recipe_smoke_bomb", "chance": 4},
             ],
             "resources": [
-                {"item_id": "bronze_alloy", "chance": 35},
-                {"item_id": "iron_gear", "chance": 30},
-                {"item_id": "snake_skin", "chance": 20},
-                {"item_id": "mole_skull", "chance": 15},
-                {"item_id": "smoked_lard", "chance": 15},
-                {"item_id": "surface_shell", "chance": 10},
+                {"item_id": "bronze_alloy", "chance": 20},
+                {"item_id": "iron_gear", "chance": 18},
+                {"item_id": "snake_skin", "chance": 12},
+                {"item_id": "mole_skull", "chance": 10},
+                {"item_id": "smoked_lard", "chance": 10},
+                {"item_id": "surface_shell", "chance": 8},
             ]
         },
     },
@@ -278,7 +289,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 2,
         "base_crumbs": 10,
-        "base_xp": 15,
+        "base_xp": 35,
         "ability": "slow",
         "ability_desc": "_При попадании замедляет на 1 ход_",
         "icon": "🐌",
@@ -287,16 +298,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.0},
             "items": [
-                {"item_id": "stinky_sock", "chance": 15},
-                {"item_id": "holy_water", "chance": 8},
+                {"item_id": "stinky_sock", "chance": 10},
+                {"item_id": "holy_water", "chance": 5},
+                {"item_id": "recipe_chainmail", "chance": 5},
             ],
             "resources": [
-                {"item_id": "rat_pelt", "chance": 25},
-                {"item_id": "spider_silk", "chance": 25},
-                {"item_id": "bat_membrane", "chance": 20},
-                {"item_id": "empty_vial", "chance": 20},
-                {"item_id": "clean_water", "chance": 15},
-                {"item_id": "honey_drop", "chance": 10},
+                {"item_id": "rat_pelt", "chance": 15},
+                {"item_id": "spider_silk", "chance": 15},
+                {"item_id": "bat_membrane", "chance": 12},
+                {"item_id": "empty_vial", "chance": 12},
+                {"item_id": "clean_water", "chance": 10},
+                {"item_id": "honey_drop", "chance": 8},
             ]
         },
     },
@@ -309,7 +321,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 3,
         "max_damage": 5,
         "base_crumbs": 25,
-        "base_xp": 18,
+        "base_xp": 60,
         "ability": "vampirism",
         "ability_desc": "_Восстанавливает половину урона_",
         "icon": "🦇",
@@ -318,17 +330,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 2.0},
             "items": [
-                {"item_id": "shadow_hood", "chance": 8},
-                {"item_id": "vampire_bat_fang", "chance": 4},
-                {"item_id": "epic_chest", "chance": 2},
+                {"item_id": "shadow_hood", "chance": 5},
+                {"item_id": "epic_chest", "chance": 1},
+                {"item_id": "recipe_crossbow", "chance": 4},
             ],
             "resources": [
-                {"item_id": "bat_membrane", "chance": 40},
-                {"item_id": "bat_fang", "chance": 15},
-                {"item_id": "rat_king_tear", "chance": 15},
-                {"item_id": "steel_shard", "chance": 10},
-                {"item_id": "fairy_dust", "chance": 10},
-                {"item_id": "human_coin", "chance": 8},
+                {"item_id": "bat_membrane", "chance": 25},
+                {"item_id": "bat_fang", "chance": 10},
+                {"item_id": "rat_king_tear", "chance": 10},
+                {"item_id": "steel_shard", "chance": 8},
+                {"item_id": "fairy_dust", "chance": 8},
+                {"item_id": "human_coin", "chance": 5},
             ]
         },
     },
@@ -342,7 +354,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 3,
         "max_damage": 6,
         "base_crumbs": 30,
-        "base_xp": 25,
+        "base_xp": 70,
         "ability": "web",
         "ability_desc": "_Раз в 3 хода опутывает паутиной_",
         "icon": "🕷️",
@@ -351,18 +363,20 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.8},
             "items": [
-                {"item_id": "ninja_mask", "chance": 10},
-                {"item_id": "net_launcher", "chance": 8},
-                {"item_id": "epic_chest", "chance": 5},
+                {"item_id": "ninja_mask", "chance": 6},
+                {"item_id": "net_launcher", "chance": 5},
+                {"item_id": "epic_chest", "chance": 3},
+                {"item_id": "recipe_crossbow", "chance": 5},
+                {"item_id": "recipe_butcher_knife", "chance": 3},
             ],
             "resources": [
-                {"item_id": "spider_silk", "chance": 40},
-                {"item_id": "steel_shard", "chance": 25},
-                {"item_id": "silver_ingot", "chance": 20},
-                {"item_id": "rat_poison", "chance": 20},
-                {"item_id": "crow_bone", "chance": 15},
-                {"item_id": "marrow_bone", "chance": 15},
-                {"item_id": "cloudy_crystal", "chance": 10},
+                {"item_id": "spider_silk", "chance": 25},
+                {"item_id": "steel_shard", "chance": 15},
+                {"item_id": "silver_ingot", "chance": 12},
+                {"item_id": "rat_poison", "chance": 12},
+                {"item_id": "crow_bone", "chance": 10},
+                {"item_id": "marrow_bone", "chance": 10},
+                {"item_id": "cloudy_crystal", "chance": 8},
             ]
         },
     },
@@ -375,7 +389,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 2,
         "max_damage": 4,
         "base_crumbs": 25,
-        "base_xp": 22,
+        "base_xp": 65,
         "ability": "curl_ball",
         "ability_desc": "_При HP < 30% сворачивается в шар_",
         "icon": "🪱",
@@ -384,16 +398,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.5},
             "items": [
-                {"item_id": "turtle_shell", "chance": 12},
-                {"item_id": "bulletproof_vest", "chance": 8},
+                {"item_id": "turtle_shell", "chance": 8},
+                {"item_id": "bulletproof_vest", "chance": 5},
+                {"item_id": "recipe_butcher_knife", "chance": 3},
             ],
             "resources": [
-                {"item_id": "iron_gear", "chance": 30},
-                {"item_id": "steel_shard", "chance": 25},
-                {"item_id": "rat_tail_vertebra", "chance": 20},
-                {"item_id": "emerald_crumb", "chance": 15},
-                {"item_id": "rat_king_tear", "chance": 15},
-                {"item_id": "mirror_shard_res", "chance": 10},
+                {"item_id": "iron_gear", "chance": 18},
+                {"item_id": "steel_shard", "chance": 15},
+                {"item_id": "rat_tail_vertebra", "chance": 12},
+                {"item_id": "emerald_crumb", "chance": 10},
+                {"item_id": "rat_king_tear", "chance": 10},
+                {"item_id": "mirror_shard_res", "chance": 8},
             ]
         },
     },
@@ -406,7 +421,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 4,
         "max_damage": 7,
         "base_crumbs": 40,
-        "base_xp": 30,
+        "base_xp": 100,
         "ability": "frenzy",
         "ability_desc": "_При HP < 50% впадает в ярость_",
         "icon": "🐀💀",
@@ -415,18 +430,20 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 2.0},
             "items": [
-                {"item_id": "butcher_knife", "chance": 8},
-                {"item_id": "demon_skin", "chance": 4},
-                {"item_id": "legendary_chest", "chance": 2},
+                {"item_id": "butcher_knife", "chance": 4},
+                {"item_id": "demon_skin", "chance": 2},
+                {"item_id": "legendary_chest", "chance": 1},
+                {"item_id": "recipe_butcher_knife", "chance": 4},
+                {"item_id": "recipe_invisibility_cloak", "chance": 3},
             ],
             "resources": [
-                {"item_id": "steel_shard", "chance": 30},
-                {"item_id": "silver_ingot", "chance": 25},
-                {"item_id": "rat_poison", "chance": 25},
-                {"item_id": "crow_bone", "chance": 20},
-                {"item_id": "fairy_dust", "chance": 15},
-                {"item_id": "moon_dew", "chance": 15},
-                {"item_id": "underground_truffle", "chance": 10},
+                {"item_id": "steel_shard", "chance": 18},
+                {"item_id": "silver_ingot", "chance": 15},
+                {"item_id": "rat_poison", "chance": 15},
+                {"item_id": "crow_bone", "chance": 12},
+                {"item_id": "fairy_dust", "chance": 10},
+                {"item_id": "moon_dew", "chance": 10},
+                {"item_id": "underground_truffle", "chance": 8},
             ]
         },
     },
@@ -439,7 +456,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 8,
         "base_crumbs": 20,
-        "base_xp": 18,
+        "base_xp": 50,
         "ability": "survival",
         "ability_desc": "_50% шанс при смерти восстановить HP_",
         "icon": "🪳",
@@ -448,16 +465,16 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.2},
             "items": [
-                {"item_id": "garbage_can_armor", "chance": 15},
-                {"item_id": "lucky_rabbit_foot", "chance": 6},
+                {"item_id": "lucky_rabbit_foot", "chance": 4},
+                {"item_id": "recipe_crossbow", "chance": 4},
             ],
             "resources": [
-                {"item_id": "rat_pelt", "chance": 25},
-                {"item_id": "iron_gear", "chance": 20},
-                {"item_id": "bronze_alloy", "chance": 20},
-                {"item_id": "spider_silk", "chance": 15},
-                {"item_id": "marrow_bone", "chance": 15},
-                {"item_id": "human_coin", "chance": 10},
+                {"item_id": "rat_pelt", "chance": 15},
+                {"item_id": "iron_gear", "chance": 12},
+                {"item_id": "bronze_alloy", "chance": 12},
+                {"item_id": "spider_silk", "chance": 10},
+                {"item_id": "marrow_bone", "chance": 10},
+                {"item_id": "human_coin", "chance": 8},
             ]
         },
     },
@@ -470,7 +487,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 1,
         "max_damage": 3,
         "base_crumbs": 28,
-        "base_xp": 26,
+        "base_xp": 75,
         "ability": "attach",
         "ability_desc": "_Присасывается к туловищу_",
         "icon": "🪱🩸",
@@ -479,16 +496,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 1.5},
             "items": [
-                {"item_id": "holy_water", "chance": 15},
-                {"item_id": "rat_poison_antidote", "chance": 10},
+                {"item_id": "holy_water", "chance": 10},
+                {"item_id": "rat_poison_antidote", "chance": 6},
+                {"item_id": "recipe_invisibility_cloak", "chance": 3},
             ],
             "resources": [
-                {"item_id": "rat_poison", "chance": 30},
-                {"item_id": "rat_king_tear", "chance": 25},
-                {"item_id": "fish_spine", "chance": 20},
-                {"item_id": "clean_water", "chance": 20},
-                {"item_id": "silver_ingot", "chance": 15},
-                {"item_id": "honey_drop", "chance": 10},
+                {"item_id": "rat_poison", "chance": 18},
+                {"item_id": "rat_king_tear", "chance": 15},
+                {"item_id": "fish_spine", "chance": 12},
+                {"item_id": "clean_water", "chance": 12},
+                {"item_id": "silver_ingot", "chance": 10},
+                {"item_id": "honey_drop", "chance": 8},
             ]
         },
     },
@@ -502,7 +520,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 5,
         "max_damage": 8,
         "base_crumbs": 50,
-        "base_xp": 40,
+        "base_xp": 150,
         "ability": "hypnosis",
         "ability_desc": "_Раз в 4 хода гипнотизирует_",
         "icon": "🦡",
@@ -511,18 +529,20 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 2.5},
             "items": [
-                {"item_id": "shadow_hood", "chance": 12},
-                {"item_id": "invisibility_cloak", "chance": 5},
-                {"item_id": "legendary_chest", "chance": 4},
+                {"item_id": "shadow_hood", "chance": 8},
+                {"item_id": "invisibility_cloak", "chance": 3},
+                {"item_id": "legendary_chest", "chance": 2},
+                {"item_id": "recipe_crown_of_rat_king", "chance": 4},
+                {"item_id": "recipe_invisibility_cloak", "chance": 4},
             ],
             "resources": [
-                {"item_id": "obsidian_scale", "chance": 25},
-                {"item_id": "mithril_nugget", "chance": 20},
-                {"item_id": "bat_fang", "chance": 20},
-                {"item_id": "moon_silk", "chance": 15},
-                {"item_id": "phoenix_ember", "chance": 10},
-                {"item_id": "magnetic_stone", "chance": 10},
-                {"item_id": "forgotten_ale", "chance": 8},
+                {"item_id": "obsidian_scale", "chance": 15},
+                {"item_id": "mithril_nugget", "chance": 12},
+                {"item_id": "bat_fang", "chance": 12},
+                {"item_id": "moon_silk", "chance": 10},
+                {"item_id": "phoenix_ember", "chance": 8},
+                {"item_id": "magnetic_stone", "chance": 8},
+                {"item_id": "forgotten_ale", "chance": 5},
             ]
         },
     },
@@ -535,7 +555,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 4,
         "max_damage": 8,
         "base_crumbs": 70,
-        "base_xp": 60,
+        "base_xp": 250,
         "ability": "two_heads",
         "ability_desc": "_Всегда атакует дважды_",
         "icon": "🐀🐀",
@@ -544,18 +564,19 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 3.0},
             "items": [
-                {"item_id": "crown_of_rat_king", "chance": 8},
-                {"item_id": "rat_king_crown_broken", "chance": 12},
-                {"item_id": "mythic_chest", "chance": 2},
+                {"item_id": "crown_of_rat_king", "chance": 4},
+                {"item_id": "rat_king_crown_broken", "chance": 6},
+                {"item_id": "mythic_chest", "chance": 1},
+                {"item_id": "recipe_crown_of_mouse_king", "chance": 5},
             ],
             "resources": [
-                {"item_id": "mithril_nugget", "chance": 30},
-                {"item_id": "obsidian_scale", "chance": 25},
-                {"item_id": "rat_king_eye", "chance": 20},
-                {"item_id": "cat_pelt", "chance": 15},
-                {"item_id": "mage_blood", "chance": 15},
-                {"item_id": "ancient_scrap", "chance": 10},
-                {"item_id": "ancient_amulet", "chance": 8},
+                {"item_id": "mithril_nugget", "chance": 18},
+                {"item_id": "obsidian_scale", "chance": 15},
+                {"item_id": "rat_king_eye", "chance": 12},
+                {"item_id": "cat_pelt", "chance": 10},
+                {"item_id": "mage_blood", "chance": 10},
+                {"item_id": "ancient_scrap", "chance": 8},
+                {"item_id": "ancient_amulet", "chance": 5},
             ]
         },
     },
@@ -568,7 +589,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 4,
         "max_damage": 9,
         "base_crumbs": 55,
-        "base_xp": 50,
+        "base_xp": 180,
         "ability": "constrict",
         "ability_desc": "_40% шанс обвить при атаке_",
         "icon": "🐍",
@@ -577,17 +598,17 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 2.5},
             "items": [
-                {"item_id": "rat_tail_whip", "chance": 10},
-                {"item_id": "dragon_scale", "chance": 5},
-                {"item_id": "legendary_chest", "chance": 4},
+                {"item_id": "dragon_scale", "chance": 3},
+                {"item_id": "legendary_chest", "chance": 2},
+                {"item_id": "recipe_crown_of_rat_king", "chance": 4},
             ],
             "resources": [
-                {"item_id": "snake_skin", "chance": 35},
-                {"item_id": "obsidian_scale", "chance": 25},
-                {"item_id": "rat_tail_vertebra", "chance": 20},
-                {"item_id": "mandrake", "chance": 15},
-                {"item_id": "hermit_rosary", "chance": 10},
-                {"item_id": "phoenix_ember", "chance": 8},
+                {"item_id": "snake_skin", "chance": 20},
+                {"item_id": "obsidian_scale", "chance": 15},
+                {"item_id": "rat_tail_vertebra", "chance": 12},
+                {"item_id": "mandrake", "chance": 10},
+                {"item_id": "hermit_rosary", "chance": 8},
+                {"item_id": "phoenix_ember", "chance": 5},
             ]
         },
     },
@@ -601,7 +622,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 5,
         "max_damage": 10,
         "base_crumbs": 80,
-        "base_xp": 50,
+        "base_xp": 200,
         "ability": "summon",
         "ability_desc": "_Призывает кротов-помощников_",
         "icon": "👑🦔",
@@ -610,21 +631,24 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 4.0},
             "items": [
-                {"item_id": "crown_of_mouse_king", "chance": 15},
-                {"item_id": "epic_chest", "chance": 20},
-                {"item_id": "legendary_chest", "chance": 8},
+                {"item_id": "crown_of_mouse_king", "chance": 10},
+                {"item_id": "epic_chest", "chance": 12},
+                {"item_id": "legendary_chest", "chance": 5},
+                {"item_id": "recipe_crown_of_rat_king", "chance": 6},
+                {"item_id": "recipe_crown_of_mouse_king", "chance": 6},
+                {"item_id": "recipe_butcher_knife", "chance": 5},
             ],
             "resources": [
-                {"item_id": "obsidian_scale", "chance": 35},
-                {"item_id": "mithril_nugget", "chance": 30},
-                {"item_id": "moon_silk", "chance": 25},
-                {"item_id": "bat_fang", "chance": 20},
-                {"item_id": "rat_king_eye", "chance": 20},
-                {"item_id": "mage_blood", "chance": 15},
-                {"item_id": "phoenix_ember", "chance": 12},
-                {"item_id": "magnetic_stone", "chance": 15},
-                {"item_id": "ancient_scrap", "chance": 12},
-                {"item_id": "void_essence", "chance": 5},
+                {"item_id": "obsidian_scale", "chance": 20},
+                {"item_id": "mithril_nugget", "chance": 18},
+                {"item_id": "moon_silk", "chance": 15},
+                {"item_id": "bat_fang", "chance": 12},
+                {"item_id": "rat_king_eye", "chance": 12},
+                {"item_id": "mage_blood", "chance": 10},
+                {"item_id": "phoenix_ember", "chance": 8},
+                {"item_id": "magnetic_stone", "chance": 10},
+                {"item_id": "ancient_scrap", "chance": 8},
+                {"item_id": "void_essence", "chance": 3},
             ]
         },
     },
@@ -637,7 +661,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 6,
         "max_damage": 12,
         "base_crumbs": 120,
-        "base_xp": 80,
+        "base_xp": 350,
         "ability": "summon_spiders",
         "ability_desc": "_Призывает пауков каждые 3 хода_",
         "icon": "👑🕷️",
@@ -646,22 +670,25 @@ TUNNEL_MONSTERS = {
         "loot_table": {
             "crumbs": {"multiplier": 5.0},
             "items": [
-                {"item_id": "cloak_of_mouse_god", "chance": 10},
-                {"item_id": "mythic_chest", "chance": 8},
-                {"item_id": "legendary_chest", "chance": 15},
+                {"item_id": "cloak_of_mouse_god", "chance": 6},
+                {"item_id": "mythic_chest", "chance": 5},
+                {"item_id": "legendary_chest", "chance": 10},
+                {"item_id": "recipe_crown_of_rat_king", "chance": 6},
+                {"item_id": "recipe_crown_of_mouse_king", "chance": 6},
+                {"item_id": "recipe_invisibility_cloak", "chance": 5},
             ],
             "resources": [
-                {"item_id": "spider_silk", "chance": 50},
-                {"item_id": "moon_silk", "chance": 35},
-                {"item_id": "mithril_nugget", "chance": 30},
-                {"item_id": "obsidian_scale", "chance": 25},
-                {"item_id": "bat_fang", "chance": 20},
-                {"item_id": "rat_king_eye", "chance": 20},
-                {"item_id": "mage_blood", "chance": 18},
-                {"item_id": "phoenix_ember", "chance": 15},
-                {"item_id": "void_essence", "chance": 10},
-                {"item_id": "adamantite", "chance": 8},
-                {"item_id": "star_silk", "chance": 8},
+                {"item_id": "spider_silk", "chance": 30},
+                {"item_id": "moon_silk", "chance": 20},
+                {"item_id": "mithril_nugget", "chance": 18},
+                {"item_id": "obsidian_scale", "chance": 15},
+                {"item_id": "bat_fang", "chance": 12},
+                {"item_id": "rat_king_eye", "chance": 12},
+                {"item_id": "mage_blood", "chance": 10},
+                {"item_id": "phoenix_ember", "chance": 10},
+                {"item_id": "void_essence", "chance": 8},
+                {"item_id": "adamantite", "chance": 5},
+                {"item_id": "star_silk", "chance": 5},
             ]
         },
     },
@@ -675,7 +702,7 @@ TUNNEL_MONSTERS = {
         "min_damage": 8,
         "max_damage": 15,
         "base_crumbs": 650,
-        "base_xp": 450,
+        "base_xp": 800,
         "ability": "multiple",
         "ability_desc": "_Восстанавливает HP, оглушает, иммунитет к хвосту_",
         "icon": "🐈",
@@ -687,27 +714,30 @@ TUNNEL_MONSTERS = {
             "items": [
                 {"item_id": "crown_of_mouse_king", "chance": 100},
                 {"item_id": "cloak_of_mouse_god", "chance": 100},
-                {"item_id": "mythic_chest", "chance": 50},
-                {"item_id": "amulet_of_cat_claw", "chance": 30},
+                {"item_id": "mythic_chest", "chance": 30},
+                {"item_id": "recipe_crown_of_rat_king", "chance": 15},
+                {"item_id": "recipe_crown_of_mouse_king", "chance": 15},
+                {"item_id": "recipe_invisibility_cloak", "chance": 10},
+                {"item_id": "recipe_butcher_knife", "chance": 10},
             ],
             "resources": [
-                {"item_id": "mithril_nugget", "chance": 50},
-                {"item_id": "obsidian_scale", "chance": 40},
-                {"item_id": "adamantite", "chance": 30},
-                {"item_id": "rat_god_tooth", "chance": 25},
-                {"item_id": "star_silk", "chance": 30},
-                {"item_id": "first_rat_skull", "chance": 20},
-                {"item_id": "labyrinth_heart", "chance": 15},
-                {"item_id": "void_essence", "chance": 30},
-                {"item_id": "spark_creation", "chance": 15},
-                {"item_id": "phoenix_ember", "chance": 25},
-                {"item_id": "ice_worm_tear", "chance": 25},
-                {"item_id": "storm_spark", "chance": 25},
-                {"item_id": "mage_blood", "chance": 30},
-                {"item_id": "gate_key", "chance": 15},
-                {"item_id": "labyrinth_seal", "chance": 15},
-                {"item_id": "tapestry_scrap", "chance": 15},
-                {"item_id": "forgotten_ale", "chance": 20},
+                {"item_id": "mithril_nugget", "chance": 30},
+                {"item_id": "obsidian_scale", "chance": 25},
+                {"item_id": "adamantite", "chance": 18},
+                {"item_id": "rat_god_tooth", "chance": 15},
+                {"item_id": "star_silk", "chance": 18},
+                {"item_id": "first_rat_skull", "chance": 12},
+                {"item_id": "labyrinth_heart", "chance": 10},
+                {"item_id": "void_essence", "chance": 18},
+                {"item_id": "spark_creation", "chance": 10},
+                {"item_id": "phoenix_ember", "chance": 15},
+                {"item_id": "ice_worm_tear", "chance": 15},
+                {"item_id": "storm_spark", "chance": 15},
+                {"item_id": "mage_blood", "chance": 18},
+                {"item_id": "gate_key", "chance": 10},
+                {"item_id": "labyrinth_seal", "chance": 10},
+                {"item_id": "tapestry_scrap", "chance": 10},
+                {"item_id": "forgotten_ale", "chance": 12},
             ]
         },
     },
@@ -758,17 +788,59 @@ def get_monster(monster_id: str) -> Optional[Dict]:
     return TUNNEL_MONSTERS.get(monster_id)
 
 
-def calculate_monster_stats(monster: Dict, room_number: int) -> Dict:
-    """Рассчитывает характеристики монстра с учётом номера комнаты"""
+def calculate_monster_stats(monster: Dict, room_number: int, player_level: int = 1, kill_streak: int = 0) -> Dict:
+    """Рассчитывает характеристики монстра и опыт с учётом номера комнаты, уровня игрока и серии убийств"""
     monster_copy = monster.copy()
     
+    # Характеристики монстра
     room_multiplier = 1.0 + (room_number * 0.05)
-    
     monster_copy["health"] = int(monster["health"] * room_multiplier)
     monster_copy["min_damage"] = max(1, int(monster["min_damage"] * room_multiplier))
     monster_copy["max_damage"] = max(2, int(monster["max_damage"] * room_multiplier))
     
-    monster_copy["xp"] = int(monster["base_xp"] * (1.0 + room_number * 0.15))
+    # ОПЫТ: Балансная формула
+    base_xp = monster.get("base_xp", 10)
+    
+    # Модификатор уровня игрока
+    if player_level <= 5:
+        level_mod = 1.5
+    elif player_level <= 10:
+        level_mod = 1.2
+    elif player_level <= 20:
+        level_mod = 1.0
+    else:
+        level_mod = 0.8
+    
+    # Модификатор редкости
+    rarity_mods = {
+        "common": 1.0,
+        "uncommon": 1.5,
+        "rare": 2.5,
+        "epic": 4.0,
+        "elite": 6.0,
+        "boss": 10.0,
+    }
+    rarity_mod = rarity_mods.get(monster.get("rarity", "common"), 1.0)
+    
+    # Бонус за глубину
+    if room_number <= 5:
+        depth_bonus = 1.1
+    elif room_number <= 10:
+        depth_bonus = 1.25
+    elif room_number <= 15:
+        depth_bonus = 1.5
+    elif room_number <= 19:
+        depth_bonus = 1.75
+    else:
+        depth_bonus = 2.0
+    
+    # Бонус за серию убийств
+    streak_bonus = 1.0 + min(1.0, kill_streak * 0.1)  # Максимум ×2.0 при 10 убийствах
+    
+    total_xp = int(base_xp * level_mod * rarity_mod * depth_bonus * streak_bonus)
+    monster_copy["xp"] = max(5, total_xp)
+    
+    # Крошки
     monster_copy["crumbs"] = int(monster["base_crumbs"] * (1.0 + room_number * 0.12))
     
     return monster_copy
@@ -804,7 +876,7 @@ def get_random_monster(room_number: int, exclude_boss: bool = True) -> Dict:
     mid, data = random.choice(available)
     monster = {"id": mid, **data}
     
-    return calculate_monster_stats(monster, room_number)
+    return monster
 
 
 def get_monster_pack(room_number: int) -> List[Dict]:
@@ -843,10 +915,10 @@ def process_loot(monster_id: str, room_number: int = 1, kill_streak: int = 0) ->
     
     # Обрабатываем предметы
     rarity_multipliers = {
-        "common": 0.6,
-        "uncommon": 0.5,
-        "rare": 0.4,
-        "epic": 0.3,
+        "common": 0.5,
+        "uncommon": 0.4,
+        "rare": 0.3,
+        "epic": 0.2,
         "elite": 1.0,
         "boss": 1.0,
     }
@@ -856,8 +928,10 @@ def process_loot(monster_id: str, room_number: int = 1, kill_streak: int = 0) ->
     
     for item_data in loot_table.get("items", []):
         original_chance = item_data.get("chance", 0)
+        if original_chance <= 0:
+            continue
         reduced_chance = max(1, int(original_chance * drop_multiplier))
-        streak_bonus = min(20, kill_streak * 2)
+        streak_bonus = min(15, kill_streak * 1)
         
         if random.randint(1, 100) <= reduced_chance + streak_bonus:
             loot["items"].append(item_data["item_id"])

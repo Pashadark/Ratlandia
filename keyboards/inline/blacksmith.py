@@ -8,6 +8,7 @@ def get_forge_main_keyboard(available_recipes: list, has_recipes: bool) -> Inlin
     """Главное меню кузницы"""
     keyboard = []
     
+    # Доступные рецепты как кнопки
     for recipe_id in available_recipes[:8]:
         recipe = RECIPES.get(recipe_id, {})
         cursed_mark = "💀" if recipe.get("cursed") else ""
@@ -16,11 +17,15 @@ def get_forge_main_keyboard(available_recipes: list, has_recipes: bool) -> Inlin
             callback_data=f"forge_select_{recipe_id}"
         )])
     
-    if not has_recipes:
-        keyboard.append([InlineKeyboardButton("📜 Нет рецептов — убей мобов!", callback_data="none")])
-    
-    keyboard.append([InlineKeyboardButton("📦 Мои ресурсы", callback_data="forge_resources")])
-    keyboard.append([InlineKeyboardButton("🔮 Гадание (5 🍞)", callback_data="forge_fortune")])
+    # Кнопки управления
+    keyboard.append([
+        InlineKeyboardButton("📦 Ресурсы", callback_data="forge_resources"),
+        InlineKeyboardButton("📜 Рецепты", callback_data="forge_recipes"),
+    ])
+    keyboard.append([
+        InlineKeyboardButton("🗡️ Заточка", callback_data="forge_sharpen"),
+        InlineKeyboardButton("💎 Инкрустирование", callback_data="forge_engrave"),
+    ])
     keyboard.append([InlineKeyboardButton("🏰 В город", callback_data="city_menu")])
     
     return InlineKeyboardMarkup(keyboard)
@@ -31,7 +36,7 @@ def get_forge_recipe_keyboard(recipe_id: str, all_have: bool) -> InlineKeyboardM
     keyboard = []
     
     if all_have:
-        keyboard.append([InlineKeyboardButton("⚒️ Ковать", callback_data=f"forge_craft_{recipe_id}")])
+        keyboard.append([InlineKeyboardButton("⚒️ КОВАТЬ!", callback_data=f"forge_craft_{recipe_id}")])
     else:
         keyboard.append([InlineKeyboardButton("❌ Не хватает материалов", callback_data="none")])
     
@@ -51,6 +56,15 @@ def get_forge_craft_result_keyboard() -> InlineKeyboardMarkup:
 
 def get_forge_resources_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура для показа ресурсов"""
+    keyboard = [
+        [InlineKeyboardButton("🔙 К кузнице", callback_data="city_forge")],
+        [InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_forge_recipes_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для показа всех рецептов"""
     keyboard = [
         [InlineKeyboardButton("🔙 К кузнице", callback_data="city_forge")],
         [InlineKeyboardButton("🏰 В город", callback_data="city_menu")],

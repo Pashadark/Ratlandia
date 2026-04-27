@@ -4,23 +4,21 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def get_profile_keyboard(user_name: str, level: int, wins: int) -> InlineKeyboardMarkup:
-    """Клавиатура профиля"""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🎒 Инвентарь", callback_data="profile_inventory"),
             InlineKeyboardButton("🛡️ Экипировка", callback_data="profile_equipment"),
         ],
         [
-            InlineKeyboardButton("🏆 Достижения", callback_data="profile_achievements"),
-            InlineKeyboardButton("🎖️ Титулы", callback_data="profile_titles"),
+            InlineKeyboardButton("📊 Характеристики", callback_data="tunnel_stats_menu"),
+            InlineKeyboardButton("📜 История", callback_data="profile_history"),
         ],
         [
-            InlineKeyboardButton("📊 Характеристики", callback_data="tunnel_stats_menu"),
-            InlineKeyboardButton("🚪 За ворота", callback_data="city_gates"),
+            InlineKeyboardButton("⚙️ Настройки", callback_data="profile_settings"),
+            InlineKeyboardButton("📤 Поделиться", switch_inline_query=f"⚔️ {user_name} | ⭐ Ур.{level} | 🏆 {wins} побед | 🐀 Ратляндия"),
         ],
         [
             InlineKeyboardButton("🏰 В город", callback_data="city_menu"),
-            InlineKeyboardButton("📤 Поделиться", switch_inline_query=f"🎲 Ратляндия | {user_name} | Уровень {level} | {wins} побед"),
         ]
     ])
 

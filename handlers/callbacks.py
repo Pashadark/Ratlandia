@@ -18,13 +18,13 @@ from handlers.profile import (
 from handlers.clan import clan_join_menu, clan_achievements_callback
 # ИМПОРТЫ ИЗ ГОРОДА И КОМАНД
 from handlers.city import city_menu, city_gates_menu, city_church_menu
-from handlers.commands import rat_top
 from handlers.titles import set_active_title, titles_command
 from handlers.tunnel import show_stats_menu, show_tunnel_menu, start_new_run, upgrade_stat_callback
 from handlers.shop import (
     shop_buy_menu, shop_sell_menu, shop_command, handle_shop_sell,
     shop_category, handle_shop_buy, handle_shop_page
 )
+from handlers.hall_of_fame import hall_of_fame
 from handlers.clan import (
     clan_command, clan_top_callback, clan_info_callback,
     clan_create_menu, clan_register, clan_manage,
@@ -53,6 +53,7 @@ from handlers.tunnel_battle import (
 )
 from handlers.tunnel_coop import send_coop_invite
 from handlers.tunnel_monsters import get_tunnel_run
+from handlers.healing import restore_health_over_time
 
 
 def escape_markdown(text: str) -> str:
@@ -72,6 +73,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_name = query.from_user.full_name
     
+    # Восстановление HP при любом действии
+    restore_health_over_time(user_id, context)
+    
     logger.info(f"🔘 Нажата кнопка: {data} от user_id={user_id}")
     
     # ========== КНОПКИ ПРОФИЛЯ ==========
@@ -88,9 +92,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "city_menu":
         await city_menu(update, context)
         return
-    elif data == "city_leaderboard":
-        await rat_top(update, context)
-        return
     elif data == "achievements_all":
         await achievements_command(update, context, show_all=True)
         return
@@ -103,6 +104,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "set_title_none":
         set_active_title(user_id, None)
         await profile_command(update, context)
+        return
+    elif data == "profile_history":
+        from handlers.profile import history_command
+        await history_command(update, context)
+        return
+    elif data == "profile_history_all":
+        from handlers.profile import history_command_all
+        await history_command_all(update, context)
         return
     elif data == "profile_equipment":
         await equipment_command(update, context)
@@ -167,6 +176,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "forge_resources":
         await forge_show_resources(update, context)
+        return
+    
+    elif data == "forge_sharpen":
+        from handlers.blacksmith import forge_sharpen
+        await forge_sharpen(update, context)
+        return
+
+    elif data == "forge_engrave":
+        from handlers.blacksmith import forge_engrave
+        await forge_engrave(update, context)
+        return
+    elif data == "forge_recipes":
+        from handlers.blacksmith import forge_show_recipes
+        await forge_show_recipes(update, context)
         return
     # ========== ЦЕРКОВЬ ==========
 
@@ -262,7 +285,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
         return
-    
+    # ========== ЗАЛ СЛАВЫ ==========
+    elif data == "city_leaderboard":
+        await hall_of_fame(update, context)
+        return
+
     # ========== СУНДУКИ ==========
     elif data == "chests_menu":
         await show_chests_menu(update, context)

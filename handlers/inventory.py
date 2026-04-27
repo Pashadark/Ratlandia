@@ -16,7 +16,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ========== КАРТИНКИ СУНДУКОВ ==========
-# Закрытые сундуки (для инвентаря, магазина, получения)
 CHEST_IMAGES_CLOSED = {
     "common": "/root/bot/images/chests/chest_common_closed.jpg",
     "rare": "/root/bot/images/chests/chest_rare_closed.jpg",
@@ -25,7 +24,6 @@ CHEST_IMAGES_CLOSED = {
     "mythic": "/root/bot/images/chests/chest_mythic_closed.jpg",
 }
 
-# Открытые сундуки (при открытии)
 CHEST_IMAGES_OPEN = {
     "common": "/root/bot/images/chests/chest_common.jpg",
     "rare": "/root/bot/images/chests/chest_rare.jpg",
@@ -59,7 +57,6 @@ def init_inventory_db():
             user_id INTEGER PRIMARY KEY,
             crumbs INTEGER DEFAULT 0
         )''')
-        # 🆕 ТАБЛИЦА ВРЕМЕННЫХ ЭФФЕКТОВ
         c.execute('''CREATE TABLE IF NOT EXISTS user_temp_effects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -70,17 +67,14 @@ def init_inventory_db():
             expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
-        # 🆕 ТАБЛИЦА СТАТИСТИКИ ПИВА
         c.execute('''CREATE TABLE IF NOT EXISTS user_beer_stats (
             user_id INTEGER PRIMARY KEY,
             beer_count INTEGER DEFAULT 0
         )''')
-        # 🆕 ТАБЛИЦА СТАТИСТИКИ СУНДУКОВ
         c.execute('''CREATE TABLE IF NOT EXISTS user_chest_stats (
             user_id INTEGER PRIMARY KEY,
             chests_opened INTEGER DEFAULT 0
         )''')
-        # 🆕 ТАБЛИЦА ПОБЕД В КОСТЯХ
         c.execute('''CREATE TABLE IF NOT EXISTS user_dice_wins (
             user_id INTEGER PRIMARY KEY,
             dice_wins INTEGER DEFAULT 0
@@ -122,7 +116,6 @@ def get_random_item(winner_role: str) -> Optional[str]:
     return available[0][0]
 
 def get_random_item_by_rarity(rarity: str) -> Optional[str]:
-    """Возвращает случайный предмет заданной редкости (кроме сундуков)"""
     available = [iid for iid, data in ALL_ITEMS.items() 
                  if data.get("rarity") == rarity and data.get("type") != "chest"]
     if not available:
@@ -130,7 +123,6 @@ def get_random_item_by_rarity(rarity: str) -> Optional[str]:
     return random.choice(available)
 
 def get_item_count(user_id: int, item_id: str) -> int:
-    """Возвращает количество предметов в инвентаре"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?', (user_id, item_id))
@@ -139,21 +131,16 @@ def get_item_count(user_id: int, item_id: str) -> int:
 
 # ========== СУНДУКИ ==========
 def open_chest(user_id: int, chest_id: str) -> Optional[Dict]:
-    """
-    Открывает сундук и возвращает информацию о выпавшем предмете
-    Возвращает: {"item_id": str, "item": dict, "quantity": int} или None
-    """
     logger.info(f"🔓 open_chest: user={user_id}, chest_id={chest_id}")
     
     if chest_id not in CHESTS:
-        logger.warning(f"❌ chest_id '{chest_id}' нет в CHESTS! Доступные: {list(CHESTS.keys())}")
+        logger.warning(f"❌ chest_id '{chest_id}' нет в CHESTS!")
         return None
     
     chest = CHESTS[chest_id]
     rarity = chest["drop_rarity"]
     role_filter = chest.get("role_filter", None)
     
-    # Проверяем наличие сундука
     count = get_item_count(user_id, chest_id)
     logger.info(f"📦 Сундуков '{chest_id}' в инвентаре: {count}")
     
@@ -161,7 +148,6 @@ def open_chest(user_id: int, chest_id: str) -> Optional[Dict]:
         logger.warning(f"❌ Нет сундуков '{chest_id}' в инвентаре")
         return None
     
-    # Получаем все предметы нужной редкости (кроме сундуков)
     available = []
     for iid, data in ALL_ITEMS.items():
         if data.get("type") == "chest":
@@ -178,7 +164,6 @@ def open_chest(user_id: int, chest_id: str) -> Optional[Dict]:
         logger.warning(f"❌ Нет доступных предметов редкости '{rarity}'")
         return None
     
-    # Специальный сундук (сырный)
     if chest.get("special") == "multiple_cheese":
         cheese_items = [iid for iid in available if "cheese" in iid.lower() or "сыр" in ALL_ITEMS[iid].get("name", "").lower()]
         if not cheese_items:
@@ -202,7 +187,6 @@ def open_chest(user_id: int, chest_id: str) -> Optional[Dict]:
             "chest_name": chest["name"]
         }
     
-    # Обычный сундук - выдаём 1 предмет
     dropped = random.choice(available)
     add_item(user_id, dropped)
     remove_item(user_id, chest_id, 1)
@@ -218,7 +202,6 @@ def open_chest(user_id: int, chest_id: str) -> Optional[Dict]:
     }
 
 def remove_item(user_id: int, item_id: str, quantity: int = 1) -> bool:
-    """Удаляет предмет из инвентаря"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?', (user_id, item_id))
@@ -234,7 +217,6 @@ def remove_item(user_id: int, item_id: str, quantity: int = 1) -> bool:
         return True
 
 def get_available_chests(user_id: int) -> List[Dict]:
-    """Возвращает список сундуков в инвентаре"""
     inventory = get_inventory(user_id)
     chests = []
     for item_id, qty in inventory.items():
@@ -245,25 +227,20 @@ def get_available_chests(user_id: int) -> List[Dict]:
             chests.append(chest)
     return chests
 
-# ========== СТАТИСТИКА СУНДУКОВ ==========
 def add_chest_opened(user_id: int):
-    """Увеличивает счётчик открытых сундуков"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO user_chest_stats (user_id, chests_opened) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET chests_opened = chests_opened + 1', (user_id,))
         conn.commit()
 
 def get_chests_opened(user_id: int) -> int:
-    """Возвращает количество открытых сундуков"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT chests_opened FROM user_chest_stats WHERE user_id = ?', (user_id,))
         row = c.fetchone()
         return row[0] if row else 0
 
-# ========== ВРЕМЕННЫЕ ЭФФЕКТЫ ==========
 def add_temp_effect(user_id: int, effect_data: dict, duration_hours: int = 1):
-    """Добавляет временный эффект в БД"""
     expires_at = datetime.now() + timedelta(hours=duration_hours)
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -282,7 +259,6 @@ def add_temp_effect(user_id: int, effect_data: dict, duration_hours: int = 1):
         conn.commit()
 
 def get_active_temp_effects(user_id: int) -> list:
-    """Возвращает активные временные эффекты игрока из БД"""
     clean_expired_effects(user_id)
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -315,7 +291,6 @@ def get_active_temp_effects(user_id: int) -> list:
         return effects
 
 def clean_expired_effects(user_id: int = None):
-    """Удаляет просроченные эффекты"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         if user_id:
@@ -325,14 +300,12 @@ def clean_expired_effects(user_id: int = None):
         conn.commit()
 
 def format_temp_effects(user_id: int) -> str:
-    """Форматирует активные временные эффекты для отображения"""
     effects = get_active_temp_effects(user_id)
     if not effects:
         return ""
     
     text = "\n🍺 *Активные эффекты:*\n"
     for eff in effects:
-        # 🆕 ОБРЕЗАЕМ МИЛЛИСЕКУНДЫ
         expires_str = eff['expires_at']
         if '.' in expires_str:
             expires_str = expires_str.split('.')[0]
@@ -352,23 +325,19 @@ def format_temp_effects(user_id: int) -> str:
     
     return text
 
-# ========== СТАТИСТИКА ПИВА ==========
 def add_beer_count(user_id: int):
-    """Увеличивает счётчик выпитого пива"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO user_beer_stats (user_id, beer_count) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET beer_count = beer_count + 1', (user_id,))
         conn.commit()
 
 def get_beer_count(user_id: int) -> int:
-    """Возвращает количество выпитого пива"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT beer_count FROM user_beer_stats WHERE user_id = ?', (user_id,))
         row = c.fetchone()
         return row[0] if row else 0
 
-# ========== СТАТИСТИКА КОСТЕЙ ==========
 def init_dice_stats():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -377,14 +346,12 @@ def init_dice_stats():
         conn.commit()
 
 def add_dice_game(user_id: int):
-    """Увеличивает счётчик игр в кости"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO dice_stats (user_id, games_played) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET games_played = games_played + 1', (user_id,))
         conn.commit()
 
 def get_dice_games(user_id: int) -> int:
-    """Возвращает количество сыгранных игр в кости"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT games_played FROM dice_stats WHERE user_id = ?', (user_id,))
@@ -392,14 +359,12 @@ def get_dice_games(user_id: int) -> int:
         return row[0] if row else 0
 
 def add_dice_win(user_id: int):
-    """Увеличивает счётчик побед в кости"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO user_dice_wins (user_id, dice_wins) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET dice_wins = dice_wins + 1', (user_id,))
         conn.commit()
 
 def get_dice_wins(user_id: int) -> int:
-    """Возвращает количество побед в кости"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT dice_wins FROM user_dice_wins WHERE user_id = ?', (user_id,))
@@ -407,9 +372,7 @@ def get_dice_wins(user_id: int) -> int:
         return row[0] if row else 0
 
 def check_dice_reward(user_id: int) -> Optional[str]:
-    """Проверяет, положен ли сундук за количество игр"""
     games = get_dice_games(user_id)
-    
     milestones = {10: "common", 25: "rare", 50: "epic", 100: "legendary", 250: "mythic"}
     
     for milestone, rarity in milestones.items():
@@ -418,13 +381,11 @@ def check_dice_reward(user_id: int) -> Optional[str]:
                 c = conn.cursor()
                 c.execute('SELECT 1 FROM dice_rewards_claimed WHERE user_id = ? AND milestone = ?', (user_id, milestone))
                 if not c.fetchone():
-                    # Не получал ещё — выдаём!
                     c.execute('INSERT INTO dice_rewards_claimed (user_id, milestone) VALUES (?, ?)', (user_id, milestone))
                     conn.commit()
                     return rarity
     return None
 
-# ========== ИСТОРИЯ МАТЧЕЙ ==========
 def init_match_history():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -439,7 +400,6 @@ def init_match_history():
         conn.commit()
 
 def add_match_record(user_id: int, role: str, won: bool, kills: int = 0):
-    """Добавляет запись в историю матчей"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO match_history (user_id, role, won, kills) VALUES (?, ?, ?, ?)',
@@ -447,7 +407,6 @@ def add_match_record(user_id: int, role: str, won: bool, kills: int = 0):
         conn.commit()
 
 def get_match_history(user_id: int, limit: int = 10):
-    """Возвращает последние матчи игрока"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''SELECT role, won, kills, timestamp FROM match_history 
@@ -533,7 +492,6 @@ def unlock_achievement(user_id: int, achievement_id: str) -> bool:
             conn.commit()
             add_xp(user_id, ACHIEVEMENTS[achievement_id]["xp"])
             
-            # 🆕 ПРОВЕРЯЕМ ТИТУЛЫ ПОСЛЕ РАЗБЛОКИРОВКИ ДОСТИЖЕНИЯ
             from handlers.titles import check_and_unlock_titles
             check_and_unlock_titles(user_id)
             
@@ -580,53 +538,14 @@ def add_xp(user_id: int, amount: int, context=None):
         
         level_up = new_level > old_level
         
-        # 🆕 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ С КАРТИНКОЙ
         if level_up and context:
-            asyncio.create_task(_send_level_up_notification(context, user_id, new_level))
+            sync_level_and_points(user_id, new_level)
+            add_action_history(user_id, f"Достигнут {new_level} уровень", "🎉")
+            from handlers.notifications import send_level_up_message
+            asyncio.create_task(send_level_up_message(context, user_id, new_level, old_level))
         
         return level_up, new_level, old_level
 
-
-async def _send_level_up_notification(context, user_id: int, new_level: int):
-    """Отправляет уведомление о повышении уровня с картинкой и кнопками"""
-    try:
-        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-        
-        sync_level_and_points(user_id, new_level)
-        
-        text = f"🎉 *Уровень повышен!*\n\n"
-        text += f"⭐ Ты достиг *{new_level} уровня*!\n"
-        text += f"🎯 Получено *1* очко характеристик!\n"
-        text += f"❤️ Максимальное здоровье +10!\n\n"
-        text += f"_Продолжай в том же духе!_"
-        
-        # 🆕 КНОПКИ ПОСЛЕ ПОВЫШЕНИЯ УРОВНЯ
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📊 Профиль", callback_data="profile")],
-            [InlineKeyboardButton("🏙️ В город", callback_data="city")]
-        ])
-        
-        try:
-            with open("/root/bot/images/level_up.jpg", "rb") as photo:
-                await context.bot.send_photo(
-                    chat_id=user_id,
-                    photo=photo,
-                    caption=text,
-                    parse_mode="Markdown",
-                    reply_markup=keyboard
-                )
-        except Exception as e:
-            # Если картинка не загрузилась - отправляем текст с кнопками
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=text,
-                parse_mode="Markdown",
-                reply_markup=keyboard
-            )
-            print(f"Ошибка отправки фото уровня: {e}")
-            
-    except Exception as e:
-        print(f"Ошибка отправки уведомления о повышении уровня: {e}")
 
 def get_user_xp(user_id: int) -> int:
     with sqlite3.connect(DB_FILE) as conn:
@@ -651,28 +570,21 @@ def get_level_progress(xp: int) -> tuple:
     xp_needed = next_level_xp - current_level_xp
     return level, xp_in_level, xp_needed
 
-# ========== ОБЁРТКИ ДЛЯ СОВМЕСТИМОСТИ ==========
-
 def get_level(user_id: int) -> int:
-    """Возвращает текущий уровень игрока"""
     xp = get_user_xp(user_id)
     return get_level_from_xp(xp)
 
-
 def get_xp(user_id: int) -> int:
-    """Возвращает текущий опыт игрока"""
     return get_user_xp(user_id)
 
 # ========== ВАЛЮТА (КРОШКИ) ==========
 def add_crumbs(user_id: int, amount: int):
-    """Добавляет крошки игроку"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('INSERT INTO user_currency (user_id, crumbs) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET crumbs = crumbs + ?', (user_id, amount, amount))
         conn.commit()
 
 def spend_crumbs(user_id: int, amount: int) -> bool:
-    """Тратит крошки. Возвращает True если хватило"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT crumbs FROM user_currency WHERE user_id = ?', (user_id,))
@@ -684,7 +596,6 @@ def spend_crumbs(user_id: int, amount: int) -> bool:
         return True
 
 def get_crumbs(user_id: int) -> int:
-    """Возвращает количество крошек"""
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT crumbs FROM user_currency WHERE user_id = ?', (user_id,))
@@ -692,14 +603,11 @@ def get_crumbs(user_id: int) -> int:
         return row[0] if row else 0
     
 def get_temp_effects(user_id: int) -> list:
-    """Возвращает список активных временных эффектов"""
     effects = []
-    
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''SELECT effect_type, effect_name, effect_value, duration 
                      FROM temp_effects WHERE user_id = ? AND duration > 0''', (user_id,))
-        
         for row in c.fetchall():
             effects.append({
                 "type": row[0],
@@ -707,23 +615,41 @@ def get_temp_effects(user_id: int) -> list:
                 "value": row[2],
                 "duration": row[3]
             })
-    
     return effects
 
 def get_inventory_slots(user_id: int) -> tuple:
-    """Возвращает (занято, всего) слотов инвентаря"""
     inventory = get_inventory(user_id)
     items_count = sum(inventory.values())
-    
-    # 🆕 Базовые слоты + бонусы от уровня/достижений
     stats = get_character_stats(user_id)
     level = stats.get('level', 1)
-    
-    # 30 базовых + 2 за каждый уровень
     max_slots = 30 + (level - 1) * 2
-    
     return items_count, max_slots
 
+# ========== ИСТОРИЯ ДЕЙСТВИЙ ==========
+def add_action_history(user_id: int, action: str, icon: str = "📌"):
+    """Добавляет запись в историю действий (хранит последние 50)"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('SELECT COUNT(*) FROM action_history WHERE user_id = ?', (user_id,))
+            if c.fetchone()[0] >= 50:
+                c.execute('DELETE FROM action_history WHERE id = (SELECT MIN(id) FROM action_history WHERE user_id = ?)', (user_id,))
+            c.execute('INSERT INTO action_history (user_id, action, icon) VALUES (?, ?, ?)', (user_id, action, icon))
+            conn.commit()
+    except:
+        pass  # Если таблицы ещё нет — ничего страшного
+
+
+def get_action_history(user_id: int, limit: int = 10) -> list:
+    """Возвращает последние N действий"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute('SELECT action, icon, timestamp FROM action_history WHERE user_id = ? ORDER BY id DESC LIMIT ?', (user_id, limit))
+            return c.fetchall()
+    except:
+        return []
+    
 # ========== СТАТИСТИКА ==========
 def update_stats(user_id: int, **kwargs):
     with sqlite3.connect(DB_FILE) as conn:

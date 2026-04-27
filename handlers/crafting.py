@@ -94,15 +94,17 @@ def spend_materials(user_id: int, materials: Dict[str, int]) -> bool:
 
 
 def get_player_resources(user_id: int) -> Dict[str, int]:
-    """Возвращает все ресурсы игрока"""
+    """Возвращает все ресурсы И рецепты игрока"""
     resources = {}
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute('SELECT item_id, quantity FROM inventory WHERE user_id = ?', (user_id,))
+        c.execute('SELECT item_id, quantity FROM inventory WHERE user_id = ? AND quantity > 0', (user_id,))
         for row in c.fetchall():
-            # Фильтруем только ресурсы (начинаются с определённых префиксов)
-            if row[0] in RESOURCE_IDS:
-                resources[row[0]] = row[1]
+            item_id = row[0]
+            qty = row[1]
+            # Ресурсы (есть в RESOURCE_IDS) ИЛИ рецепты (начинаются с recipe_)
+            if item_id in RESOURCE_IDS or item_id.startswith('recipe_'):
+                resources[item_id] = qty
     return resources
 
 
@@ -125,7 +127,11 @@ RESOURCE_IDS = {
     "fairy_dust", "moon_dew", "mage_blood", "phoenix_ember", "ice_worm_tear", "storm_spark",
     "stone_shard", "spider_web", "pigeon_feather", "candle_stub",
     "cloudy_crystal", "mirror_shard", "magnetic_stone", "hermit_rosary",
-    "gate_key", "labyrinth_seal",
+    "gate_key", "labyrinth_seal", "recipe_cheese_sword", "recipe_leather_vest", "recipe_gambeson",
+    "recipe_rat_dagger", "recipe_viking_helmet", "recipe_chainmail",
+    "recipe_crossbow", "recipe_butcher_knife", "recipe_invisibility_cloak",
+    "recipe_crown_of_rat_king", "recipe_crown_of_mouse_king",
+    "recipe_poison_cheese", "recipe_smoke_bomb",
 }
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import re
 import logging
 import os
 import sqlite3
@@ -335,6 +335,27 @@ def run_startup_checks():
     print("✅ ПОЛНАЯ ПРОВЕРКА ЗАВЕРШЕНА! ЗАПУСК БОТА...")
     print("=" * 80)
 
+async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Единый обработчик текстовых сообщений"""
+    text = update.message.text.strip() if update.message.text else ""
+    
+    if context.user_data.get("awaiting_nickname"):
+        await handle_nickname_input(update, context)
+        return
+    
+    if re.search(r'(?i)шпите', text):
+        await shpite_handler(update, context)
+        return
+    
+    if context.user_data.get("awaiting_bet"):
+        await handle_bet_input(update, context)
+        return
+    
+    if 'instagram.com' in text:
+        await handle_message(update, context)
+        return
+    
+    await clan_message_handler(update, context)
 
 def main():
     run_startup_checks()
@@ -461,11 +482,7 @@ def main():
     # ТУННЕЛИ (после основного колбэка!)
     register_tunnel_handlers(app)
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_nickname_input), group=1)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.Regex(r'(?i)шпите'), shpite_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, clan_message_handler), group=2)
-    # handle_message убран — теперь он вызывается внутри clan_message_handler!
-    app.add_error_handler(error_handler)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, smart_text_handler))
 
     print("\n✅ Бот запущен!")
     print("📱 @testpasha_bot")

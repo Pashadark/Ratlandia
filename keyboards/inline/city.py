@@ -21,9 +21,9 @@ def get_city_keyboard() -> InlineKeyboardMarkup:
 def get_gates_keyboard() -> InlineKeyboardMarkup:
     """Подменю 'За воротами'"""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("В туннели", callback_data="tunnel_menu")],
-        [InlineKeyboardButton("В леса", callback_data="gates_forest")],
-        [InlineKeyboardButton("В руины", callback_data="gates_ruins")],
-        [InlineKeyboardButton("На кладбище", callback_data="city_menu")],
-        [InlineKeyboardButton("В город", callback_data="city_menu")]
+        [InlineKeyboardButton("🕸 В туннели", callback_data="tunnel_menu")],
+        [InlineKeyboardButton("🌲 леса", callback_data="gates_forest")],
+        [InlineKeyboardButton("🪨 В руины", callback_data="gates_ruins")],
+        [InlineKeyboardButton("⚰️ На кладбище", callback_data="city_menu")],
+        [InlineKeyboardButton("🏰 В город", callback_data="city_menu")]
     ])

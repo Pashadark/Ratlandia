@@ -12,6 +12,7 @@ from handlers.inventory import (
     get_level_progress, equip_item, unequip_item, use_consumable, get_crumbs,
     get_available_chests, format_temp_effects, get_active_temp_effects
 )
+from handlers.inventory import get_action_history
 from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, EQUIPMENT_SLOTS, CHESTS
 from handlers.achievements_data import ACHIEVEMENTS
 from handlers.titles import get_active_title, check_and_unlock_titles
@@ -58,16 +59,11 @@ def format_profile_text(user_name: str, rating: dict, equipment: dict, achieveme
         title_text = active_title["name"] if active_title else "🌱 Новичок"
         crumbs = get_crumbs(user_id)
         items_count = sum(inventory.values())
-        rat_wins = rating.get('wins_as_rat', 0)
-        rat_games = rating.get('games_as_rat', 0)
-        mouse_wins = rating.get('wins_as_mouse', 0)
-        mouse_games = rating.get('games_as_mouse', 0)
         base_stats = get_character_stats(user_id)
         effects = get_player_effects(user_id, None)
         bonus_strength = effects.get("strength", 0)
         bonus_agility = effects.get("agility", 0)
         bonus_intelligence = effects.get("intelligence", 0)
-        bonus_health = effects.get("max_health", 0)
         effects_list = []
         temp_effects = get_active_temp_effects(user_id)
         for eff in temp_effects[:5]:
@@ -117,29 +113,28 @@ def format_profile_text(user_name: str, rating: dict, equipment: dict, achieveme
         weapon_line = format_slot('weapon', '⚔️')
         armor_line = format_slot('armor', '🛡️')
         access_line = format_slot('accessory', '💍')
+        
         strength_text = f"💪 Сила: {base_stats['strength']}"
         if bonus_strength > 0:
-            strength_text += f" (+{bonus_strength})"
+            strength_text += f" (+{bonus_strength} от экип.)"
+        
         agility_text = f"🍀 Ловкость: {base_stats['agility']}"
         if bonus_agility > 0:
-            agility_text += f" (+{bonus_agility})"
+            agility_text += f" (+{bonus_agility} от экип.)"
+        
         intelligence_text = f"🧠 Интеллект: {base_stats['intelligence']}"
         if bonus_intelligence > 0:
-            intelligence_text += f" (+{bonus_intelligence})"
+            intelligence_text += f" (+{bonus_intelligence} от экип.)"
+        
         health_text = f"❤️ Здоровье: {base_stats['current_health']}/{base_stats['max_health']}"
-        if bonus_health > 0:
-            health_text += f" (+{bonus_health})"
+        
         text = f"""*Профиль:*
 
 ⚔️ {escape_markdown(nickname)} | {title_text}
-⭐ Уровень {level} | 🧀 Крошек: {crumbs}
+⭐ Уровень {level}
 ✨ Опыт: {xp_in_level}/{xp_needed} XP
 🎒 Предметов: {items_count}
-
-*Статистика:*
-🎮 Игр: {rating['games']} | 🏆 Побед: {rating['wins']}
-🐀 Крыса: {rat_wins}/{rat_games} | 🐭 Мышь: {mouse_wins}/{mouse_games}
-🕳️ Походов: {base_stats.get('total_tunnel_runs', 0)}
+🧀 Крошек: {crumbs}
 
 *Характеристики:*
 {strength_text}
@@ -198,7 +193,6 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(text)
             return
         restore_health_over_time(user_id, context)
-        sync_level_and_points(user_id, level)
         check_and_unlock_titles(user_id)
         text = format_profile_text(user_name, rating, equipment, achievements, inventory, xp, level, xp_in_level, xp_needed, user_id)
         keyboard = get_profile_keyboard(user_name, level, rating['wins'])
@@ -479,6 +473,75 @@ async def handle_unequip(update: Update, context: ContextTypes.DEFAULT_TYPE, slo
         await equipment_command(update, context)
     except Exception as e:
         logger.error(f"❌ Ошибка в handle_unequip: {e}", exc_info=True)
+
+async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает историю действий"""
+    user_id = update.effective_user.id
+    
+    from handlers.inventory import get_action_history
+    
+    history = get_action_history(user_id, 10)
+    
+    if not history:
+        text = "📜 *ИСТОРИЯ ДЕЙСТВИЙ*\n\n_Пока пусто. Начни играть и история заполнится!_"
+    else:
+        text = "📜 *ИСТОРИЯ ДЕЙСТВИЙ*\n\n"
+        text += "_Твои последние подвиги в Подземном Царстве:_\n\n"
+        for action, icon, timestamp in history:
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+                time_str = dt.strftime('%d.%m %H:%M')
+            except:
+                time_str = str(timestamp)[:16]
+            text += f"  {icon} {action}\n     _({time_str})_\n"
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Все записи", callback_data="profile_history_all")],
+        [InlineKeyboardButton("👑 Профиль", callback_data="back_to_profile"),
+         InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
+    ])
+    
+    if update.callback_query:
+        query = update.callback_query
+        await query.message.delete()
+        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+
+async def history_command_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает ВСЮ историю действий (50 записей)"""
+    user_id = update.effective_user.id
+    
+    from handlers.inventory import get_action_history
+    
+    history = get_action_history(user_id, 50)
+    
+    if not history:
+        text = "📜 *ИСТОРИЯ ДЕЙСТВИЙ*\n\n_Пока пусто._"
+    else:
+        text = "📜 *ПОЛНАЯ ИСТОРИЯ ДЕЙСТВИЙ*\n\n"
+        text += "_Все твои подвиги в Подземном Царстве:_\n\n"
+        for action, icon, timestamp in history:
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+                time_str = dt.strftime('%d.%m %H:%M')
+            except:
+                time_str = str(timestamp)[:16]
+            text += f"  {icon} {action}\n     _({time_str})_\n"
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👑 Профиль", callback_data="back_to_profile"),
+         InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
+    ])
+    
+    if update.callback_query:
+        query = update.callback_query
+        await query.message.delete()
+        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
 
 async def achievements_command(update: Update, context: ContextTypes.DEFAULT_TYPE, show_all: bool = False):
     if update.effective_chat.type != "private":

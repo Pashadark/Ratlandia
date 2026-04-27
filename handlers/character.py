@@ -72,24 +72,8 @@ def get_character_stats(user_id: int) -> Dict:
                 "last_health_update": None
             }
     
-    # 🆕 ДОБАВЛЯЕМ БОНУСЫ ОТ ЭКИПИРОВКИ (ИМПОРТ ВНУТРИ ФУНКЦИИ!)
-    try:
-        from handlers.effects import get_player_effects
-        effects = get_player_effects(user_id, "all")
-        
-        base_stats["strength"] = base_stats["strength"] + effects.get("strength", 0)
-        base_stats["agility"] = base_stats["agility"] + effects.get("agility", 0)
-        base_stats["intelligence"] = base_stats["intelligence"] + effects.get("intelligence", 0)
-        base_stats["max_health"] = base_stats["max_health"] + effects.get("max_health", 0)
-        
-        # Бонус ко всем характеристикам
-        all_stats = effects.get("all_stats", 0)
-        if all_stats > 0:
-            base_stats["strength"] = base_stats["strength"] + all_stats
-            base_stats["agility"] = base_stats["agility"] + all_stats
-            base_stats["intelligence"] = base_stats["intelligence"] + all_stats
-    except Exception as e:
-        pass  # Если эффекты не загрузились - игнорируем
+    # 🆕 Бонусы от экипировки НЕ плюсуем в базу!
+    # Они будут отдельно в get_player_effects()
     
     return base_stats
 
@@ -123,18 +107,12 @@ def upgrade_stat(user_id: int, stat: str) -> tuple:
     update_data = {}
     
     if stat == "strength":
-        new_strength = stats['strength'] + 1
-        new_max_hp = 80 + (new_strength * 10)
-        hp_diff = new_max_hp - stats['max_health']
-        
         update_data = {
-            "strength": new_strength,
-            "max_health": new_max_hp,
-            "current_health": stats['current_health'] + hp_diff,
+            "strength": stats['strength'] + 1,
             "stat_points": stats['stat_points'] - 1
         }
         update_character_stats(user_id, **update_data)
-        return True, f"💪 Сила повышена до {new_strength}!", update_data
+        return True, f"💪 Сила повышена до {stats['strength'] + 1}!", update_data
     
     elif stat == "agility":
         update_data = {
@@ -163,7 +141,7 @@ def sync_level_and_points(user_id: int, new_level: int):
     current_level = stats.get('level', 1)
     
     if new_level > current_level:
-        points_to_add = new_level - current_level
+        points_to_add = (new_level - current_level) * 3
         update_character_stats(
             user_id,
             level=new_level,
