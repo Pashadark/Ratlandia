@@ -233,7 +233,7 @@ _У тебя есть {stats['stat_points']} свободных очков._
     
     if stats['stat_points'] > 0:
         keyboard.extend([
-            [InlineKeyboardButton("💪 +1 Сила (+10 HP)", callback_data="tunnel_stat_strength")],
+            [InlineKeyboardButton("💪 +1 Сила", callback_data="tunnel_stat_strength")],
             [InlineKeyboardButton("🍀 +1 Ловкость", callback_data="tunnel_stat_agility")],
             [InlineKeyboardButton("🧠 +1 Интеллект", callback_data="tunnel_stat_intelligence")],
         ])

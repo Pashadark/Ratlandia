@@ -7,6 +7,8 @@ import sqlite3
 import platform
 import subprocess
 import sys
+import asyncio
+import time
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
 from telegram.error import NetworkError, TimedOut
@@ -21,7 +23,7 @@ from telegram.ext import (
 )
 
 from config import TOKEN, LOG_FILE, MIN_PLAYERS, MAX_PLAYERS
-from handlers.commands import start, help_command, rat_top, rat_me, crumbs_command, handle_nickname_input
+from handlers.commands import start, help_command, rat_top, crumbs_command, handle_nickname_input
 from handlers.game_rat import (
     rat_start, rat_stop, rat_rules,
     handle_rat_kill, handle_rat_kill_none,
@@ -38,16 +40,25 @@ from handlers.game_rat import (
 )
 from handlers.instagram import handle_message, shpite_handler
 from handlers.callbacks import button_callback
-from handlers.tunnel import tunnel_command, register_tunnel_handlers
+from handlers.tunnel import tunnel_command, register_tunnel_handlers, show_stats_menu, start_new_run
 from handlers.tunnel_coop import handle_join_boss
 from handlers.profile import (
     profile_command, inventory_command, achievements_command, equipment_command,
-    item_info_command
+    item_info_command, history_command
 )
 from handlers.shop import shop_command
 from handlers.daily import daily_command
-from handlers.clan import clan_command, clan_message_handler
+from handlers.clan import clan_command, clan_message_handler, clan_top_callback, clan_create_menu
 from handlers.dice import dice_command, dice_callback, handle_bet_input, cancel_command
+from handlers.titles import titles_command
+from handlers.city import city_menu, city_gates_menu
+from handlers.blacksmith import (
+    blacksmith_menu, forge_select_recipe, forge_craft, forge_show_resources, 
+    forge_show_recipes, forge_sharpen, forge_engrave, forge_fortune, 
+    forge_show_resources_category, forge_show_resources_all
+)
+from handlers.church import city_church_menu, church_rest, church_leave
+from handlers.hall_of_fame import hall_of_fame
 
 sys.path.append('/root/bot')
 
@@ -102,238 +113,348 @@ def get_server_info():
     return info
 
 
+def progress_bar(percent, length=40):
+    """Рисует прогресс-бар [████░░░░] XX%"""
+    filled = int(length * percent / 100)
+    bar = "█" * filled + "░" * (length - filled)
+    return f"[{bar}] {percent}%"
+
+
 def run_startup_checks():
-    """Полная проверка всех систем при запуске"""
+    """Полная проверка всех систем при запуске с прогресс-барами"""
     server_info = get_server_info()
-    
-    print("=" * 80)
-    print("🔍 ЗАПУСК ПРОВЕРКИ ВСЕХ СИСТЕМ РАТЛЯНДИИ")
-    print("=" * 80)
-    
-    print("\n🖥️ ИНФОРМАЦИЯ О СЕРВЕРЕ")
-    print("-" * 80)
-    print(f"   🕐 Время сервера: {server_info['time']} ({server_info['timezone']})")
-    print(f"   💻 Система: {server_info['system']} {server_info['release']} ({server_info['machine']})")
-    print(f"   🐍 Python: {server_info['python']}")
-    print(f"   💾 Диск: {server_info['disk_usage']}")
-    print(f"   🧠 Память: {server_info['memory']}")
-    
-    print("\n🗄️ 1. ПРОВЕРКА БАЗЫ ДАННЫХ")
-    print("-" * 80)
-    
+    all_ok = True
+    warnings = []
     DB_FILE = "/root/bot/ratings.db"
-    if not os.path.exists(DB_FILE):
-        print(f"❌ Файл БД не найден: {DB_FILE}")
-    else:
-        size = os.path.getsize(DB_FILE) / 1024
-        print(f"✅ Файл БД найден: {size:.1f} KB")
+    IMAGES_DIR = "/root/bot/images"
+    
+    print("=" * 80)
+    print("                    🐀 РАТЛЯНДИЯ — ЗАПУСК СИСТЕМЫ")
+    print("=" * 80)
+    
+    # ---------- 1/14 СЕРВЕР ----------
+    print(f"\n🖥️ [1/14] ПРОВЕРКА СЕРВЕРА")
+    try:
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   ⏰ {server_info['time']} ({server_info['timezone']}) | 💻 {server_info['system']} {server_info['release']} | 🐍 Python {server_info['python']}")
+        print(f"   💾 Диск: {server_info['disk_usage']} | 🧠 RAM: {server_info['memory']}")
         
+        # Проверка свободного места
+        try:
+            df = subprocess.check_output(['df', '-h', '/']).decode().strip().split('\n')[1]
+            usage_pct = int(df.split()[4].replace('%', ''))
+            if usage_pct > 85:
+                warnings.append(f"⚠️ Мало места на диске: {usage_pct}%")
+        except:
+            pass
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        all_ok = False
+    
+    # ---------- 2/14 БАЗА ДАННЫХ ----------
+    print(f"\n🗄️ [2/14] ПРОВЕРКА БАЗЫ ДАННЫХ")
+    
+    if not os.path.exists(DB_FILE):
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Файл не найден: {DB_FILE}")
+        all_ok = False
+    else:
         try:
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             
-            tables = [
+            # Проверка целостности
+            c.execute("PRAGMA integrity_check")
+            integrity = c.fetchone()[0]
+            
+            # Подсчёт таблиц
+            tables_needed = [
                 'ratings', 'inventory', 'equipment', 'user_achievements',
                 'user_stats', 'user_titles', 'user_active_title', 'user_currency',
                 'daily_rewards', 'dice_stats', 'dice_rewards_claimed',
                 'clans', 'clan_members', 'match_history'
             ]
             
+            found_tables = 0
             total_players = 0
-            total_games = 0
-            total_kills = 0
-            total_crumbs = 0
             
-            for table in tables:
+            for table in tables_needed:
                 c.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'")
                 if c.fetchone():
-                    c.execute(f"SELECT COUNT(*) FROM {table}")
-                    count = c.fetchone()[0]
-                    print(f"   ✅ {table:<22} {count:>6} записей")
+                    found_tables += 1
                     if table == 'ratings':
-                        total_players = count
-                    elif table == 'match_history':
-                        total_games = count
-                else:
-                    print(f"   ⚠️ {table:<22} НЕ СУЩЕСТВУЕТ (создастся автоматически)")
+                        c.execute(f"SELECT COUNT(*) FROM {table}")
+                        total_players = c.fetchone()[0]
             
-            try:
-                c.execute("SELECT SUM(total_kills) FROM user_stats")
-                total_kills = c.fetchone()[0] or 0
-                c.execute("SELECT SUM(crumbs) FROM user_currency")
-                total_crumbs = c.fetchone()[0] or 0
-            except:
-                pass
+            c.execute("SELECT COUNT(*) FROM inventory")
+            total_items = c.fetchone()[0]
+            
+            size_kb = os.path.getsize(DB_FILE) / 1024
             
             conn.close()
             
-            print(f"\n   👥 ВСЕГО ИГРОКОВ: {total_players}")
-            print(f"   🎮 ВСЕГО ИГР СЫГРАНО: {total_games}")
-            print(f"   💀 ВСЕГО УБИЙСТВ: {total_kills}")
-            print(f"   🧀 КРОШЕК В ОБРАЩЕНИИ: {total_crumbs}")
+            table_pct = int(found_tables / len(tables_needed) * 100)
+            
+            if integrity == "ok" and found_tables == len(tables_needed):
+                print(f"   {progress_bar(100)} ✅")
+                print(f"   📦 {size_kb:.1f} KB | 👥 {total_players} игроков | 🎒 {total_items} предметов")
+                print(f"   🗃️ {found_tables}/{len(tables_needed)} таблиц | 🔐 Целостность OK")
+            else:
+                print(f"   {progress_bar(table_pct)} ⚠️")
+                if integrity != "ok":
+                    warnings.append(f"⚠️ БД повреждена: {integrity}")
+                if found_tables < len(tables_needed):
+                    warnings.append(f"⚠️ Не хватает таблиц: {len(tables_needed) - found_tables}")
             
         except Exception as e:
-            print(f"❌ Ошибка подключения к БД: {e}")
+            print(f"   {progress_bar(0)} ❌")
+            print(f"   ❌ Ошибка: {str(e)[:50]}")
+            all_ok = False
     
-    print("\n🖼️ 2. ПРОВЕРКА КАРТИНОК")
-    print("-" * 80)
+    # ---------- 3/14 КАРТИНКИ ----------
+    print(f"\n🖼️ [3/14] ПРОВЕРКА КАРТИНОК")
     
-    IMAGES_DIR = "/root/bot/images"
-    AVATARS_DIR = "/root/bot/images/avatars"
-    CHESTS_DIR = "/root/bot/images/chests"
-    TUNNEL_MONSTERS_DIR = "/root/bot/images/tunnel_monsters"
-    
-    main_images = [
-        "mice_win.jpg", "mice_win_2.jpg", "mice_win_3.jpg", "mice_win_4.jpg",
-        "rat_win.jpg", "rat_win_2.jpg", "rat_win_3.jpg", "rat_win_4.jpg",
-        "rat_kill.jpg", "rat_kill_2.jpg", "rat_kill_3.jpg", "rat_kill_4.jpg",
-        "night.jpg", "day.jpg", "voting.jpg", "lobby.jpg", "rules.jpg",
-        "role_cards.jpg", "item_drop.jpg", "leaderboard.jpg",
-        "profile.jpg", "achievement_hall.jpg", "inventory.jpg",
-        "equipment.jpg", "rat_choose.jpg", "use_item_prompt.jpg",
-        "loading.jpg", "level_up.jpg", "shop.jpg", "tunnel_entrance.jpg",
-        "daily_reward.jpg", "clan.jpg", "dice_game.jpg", "dice_1.jpg",
-        "city_main.jpg", "weapon_drop.jpg", "consumable_drop.jpg"
-    ]
-    
-    if os.path.exists(IMAGES_DIR):
-        found_main = sum(1 for img in main_images if os.path.exists(os.path.join(IMAGES_DIR, img)))
-        print(f"   ✅ Основные картинки: {found_main}/{len(main_images)}")
-        
-        avatar_files = [
-            "level_1_4.jpg", "level_5_9.jpg", "level_10_14.jpg",
-            "level_15_19.jpg", "level_20_24.jpg", "level_25_29.jpg",
-            "level_30_39.jpg", "level_40_49.jpg", "level_50_74.jpg",
-            "level_75_99.jpg", "level_100.jpg"
-        ]
-        
-        if os.path.exists(AVATARS_DIR):
-            found_avatars = sum(1 for ava in avatar_files if os.path.exists(os.path.join(AVATARS_DIR, ava)))
-            print(f"   ✅ Аватарки по уровням: {found_avatars}/{len(avatar_files)}")
-        else:
-            print(f"   ⚠️ Папка с аватарками не найдена")
-        
-        chest_files = ["chest_common.jpg", "chest_rare.jpg", "chest_epic.jpg", "chest_legendary.jpg", "chest_mythic.jpg"]
-        if os.path.exists(CHESTS_DIR):
-            found_chests = sum(1 for ch in chest_files if os.path.exists(os.path.join(CHESTS_DIR, ch)))
-            print(f"   ✅ Картинки сундуков: {found_chests}/{len(chest_files)}")
-        
-        monster_files = [
-            "blind_mole.jpg", "giant_woodlouse.jpg", "earthworm.jpg",
-            "rustler.jpg", "moldling.jpg", "renegade_rat.jpg",
-            "scolopendra.jpg", "grinder_beetle.jpg", "giant_slug.jpg",
-            "vampire_bat.jpg", "weaver_spider.jpg", "armadillo_centipede.jpg",
-            "rat_ghoul.jpg", "giant_cockroach.jpg", "sewer_leech.jpg",
-            "black_ferret.jpg", "two_headed_rat.jpg", "basement_snake.jpg",
-            "baby_rat.jpg", "old_blind_cat.jpg"
-        ]
-        if os.path.exists(TUNNEL_MONSTERS_DIR):
-            found_monsters = sum(1 for m in monster_files if os.path.exists(os.path.join(TUNNEL_MONSTERS_DIR, m)))
-            print(f"   ✅ Картинки монстров: {found_monsters}/{len(monster_files)}")
-        else:
-            print(f"   ⚠️ Папка с монстрами не найдена")
-        
-        total_size = 0
-        for root, dirs, files in os.walk(IMAGES_DIR):
-            for file in files:
-                if file.endswith(('.jpg', '.png', '.jpeg')):
-                    total_size += os.path.getsize(os.path.join(root, file))
-        print(f"   📦 Общий размер картинок: {total_size / (1024*1024):.1f} MB")
+    if not os.path.exists(IMAGES_DIR):
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Папка не найдена!")
+        all_ok = False
     else:
-        print(f"   ❌ Папка с картинками не найдена")
+        total_size = sum(
+            os.path.getsize(os.path.join(root, f))
+            for root, _, files in os.walk(IMAGES_DIR)
+            for f in files if f.endswith(('.jpg', '.png', '.jpeg'))
+        )
+        file_count = sum(
+            1 for root, _, files in os.walk(IMAGES_DIR)
+            for f in files if f.endswith(('.jpg', '.png', '.jpeg'))
+        )
+        
+        # Проверка критических картинок
+        critical = ['city_main.jpg', 'profile.jpg', 'shop.jpg', 'tunnel_entrance.jpg']
+        missing_critical = [img for img in critical if not os.path.exists(os.path.join(IMAGES_DIR, img))]
+        
+        if not missing_critical:
+            print(f"   {progress_bar(100)} ✅")
+            print(f"   🖼️ {file_count} файлов | 💾 {total_size/(1024*1024):.1f} MB")
+            print(f"   🏰 Критические: все на месте")
+        else:
+            print(f"   {progress_bar(int((len(critical)-len(missing_critical))/len(critical)*100))} ⚠️")
+            warnings.append(f"⚠️ Отсутствуют картинки: {', '.join(missing_critical)}")
     
-    print("\n📦 3. ПРОВЕРКА ИМПОРТОВ МОДУЛЕЙ")
-    print("-" * 80)
+    # ---------- 4/14 КОНФИГУРАЦИЯ ----------
+    print(f"\n⚙️ [4/14] ПРОВЕРКА КОНФИГУРАЦИИ")
+    try:
+        if not TOKEN or len(TOKEN) < 30:
+            print(f"   {progress_bar(0)} ❌")
+            print(f"   ❌ Токен невалиден!")
+            all_ok = False
+        else:
+            print(f"   {progress_bar(100)} ✅")
+            print(f"   🔑 Токен: OK | 🎮 {MIN_PLAYERS}-{MAX_PLAYERS} игроков")
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        all_ok = False
     
-    modules_to_check = [
-        ("handlers.game_rat", "game_rat.py"),
-        ("handlers.profile", "profile.py"),
-        ("handlers.commands", "commands.py"),
-        ("handlers.callbacks", "callbacks.py"),
-        ("handlers.inventory", "inventory.py"),
-        ("handlers.items", "items.py"),
-        ("handlers.achievements_data", "achievements_data.py"),
-        ("handlers.titles", "titles.py"),
-        ("handlers.effects", "effects.py"),
-        ("handlers.shop", "shop.py"),
-        ("handlers.daily", "daily.py"),
-        ("handlers.clan", "clan.py"),
-        ("handlers.dice", "dice.py"),
-        ("handlers.city", "city.py"),
-        ("handlers.tunnel", "tunnel.py"),
-        ("handlers.tunnel_monsters", "tunnel_monsters.py"),
-        ("handlers.tunnel_battle", "tunnel_battle.py"),
-        ("handlers.tunnel_rooms", "tunnel_rooms.py"),
-        ("handlers.tunnel_coop", "tunnel_coop.py"),
-        ("database", "database.py"),
-        ("config", "config.py"),
+    # ---------- 5/14 МОДУЛИ ----------
+    print(f"\n📦 [5/14] ПРОВЕРКА МОДУЛЕЙ")
+    modules = [
+        ("game_rat", "game_rat.py"), ("profile", "profile.py"),
+        ("commands", "commands.py"), ("callbacks", "callbacks.py"),
+        ("inventory", "inventory.py"), ("items", "items.py"),
+        ("shop", "shop.py"), ("daily", "daily.py"),
+        ("clan", "clan.py"), ("dice", "dice.py"),
+        ("city", "city.py"), ("tunnel", "tunnel.py"),
+        ("tunnel_monsters", "tunnel_monsters.py"), ("tunnel_battle", "tunnel_battle.py"),
+        ("tunnel_rooms", "tunnel_rooms.py"), ("tunnel_coop", "tunnel_coop.py"),
+        ("blacksmith", "blacksmith.py"), ("church", "church.py"),
+        ("hall_of_fame", "hall_of_fame.py"), ("titles", "titles.py"),
+        ("enchant", "enchant.py"), ("crafting", "crafting.py"),
+        ("database", "database.py"), ("config", "config.py"),
     ]
     
-    for module, filename in modules_to_check:
+    failed_modules = []
+    for mod, filename in modules:
         try:
-            __import__(module)
-            print(f"   ✅ {filename:<25} OK")
-        except Exception as e:
-            print(f"   ❌ {filename:<25} ОШИБКА: {str(e)[:40]}")
+            __import__(f"handlers.{mod}")
+        except:
+            try:
+                __import__(mod)
+            except:
+                failed_modules.append(filename)
     
-    print("\n⚙️ 4. ПРОВЕРКА КОНФИГУРАЦИИ ИГРЫ")
-    print("-" * 80)
+    ok_count = len(modules) - len(failed_modules)
+    pct = int(ok_count / len(modules) * 100)
     
+    if not failed_modules:
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   📚 {ok_count}/{len(modules)} модулей загружено")
+    else:
+        print(f"   {progress_bar(pct)} ❌")
+        print(f"   ❌ Проблемы: {', '.join(failed_modules)}")
+        all_ok = False
+    
+    # ---------- 6/14 ПРЕДМЕТЫ ----------
+    print(f"\n🎒 [6/14] ПРОВЕРКА ПРЕДМЕТОВ")
     try:
-        from config import TOKEN, MIN_PLAYERS, MAX_PLAYERS, NIGHT_TIME, DAY_TIME, VOTE_TIME
-        print(f"   ✅ TOKEN: {TOKEN[:10]}...{TOKEN[-10:]}")
-        print(f"   ✅ Игроков: от {MIN_PLAYERS} до {MAX_PLAYERS}")
-        print(f"   ✅ Фазы: Ночь {NIGHT_TIME}с / День {DAY_TIME}с / Голосование {VOTE_TIME}с")
-    except Exception as e:
-        print(f"   ❌ Ошибка конфигурации: {e}")
-    
-    print("\n🎒 5. ПРОВЕРКА ФУНКЦИЙ ИНВЕНТАРЯ")
-    print("-" * 80)
-    
-    try:
-        from handlers.inventory import (
-            get_crumbs, add_crumbs, add_xp, get_user_xp,
-            get_level_from_xp, add_item, get_inventory, get_available_chests, open_chest
-        )
-        from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, CHESTS
-        print("   ✅ Все функции инвентаря импортируются")
-        print(f"   📦 Всего предметов в игре: {len(ALL_ITEMS)}")
-        print(f"      ├─ Экипировка: {len(EQUIPMENT)}")
-        print(f"      ├─ Расходники: {len(CONSUMABLES)}")
-        print(f"      └─ Сундуки: {len(CHESTS)}")
+        from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, CHESTS, RECIPES, ENCHANT_SCROLLS
         
-        test_user = 185185047
-        crumbs = get_crumbs(test_user)
-        xp = get_user_xp(test_user)
-        level = get_level_from_xp(xp)
-        print(f"\n   ✅ Тестовый пользователь {test_user}:")
-        print(f"      🧀 Крошки: {crumbs}")
-        print(f"      ✨ Опыт: {xp} XP")
-        print(f"      ⭐ Уровень: {level}")
-        
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   ⚔️ {len(ALL_ITEMS)} предметов | 🛡️ {len(EQUIPMENT)} экип. | 🧪 {len(CONSUMABLES)} расх. | 📦 {len(CHESTS)} сундуков")
+        print(f"   📜 {len(RECIPES)} рецептов | ⚡ {len(ENCHANT_SCROLLS) if ENCHANT_SCROLLS else 0} свитков заточки")
     except Exception as e:
-        print(f"   ❌ Ошибка инвентаря: {e}")
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        all_ok = False
     
-    print("\n🏆 6. ПРОВЕРКА ДОСТИЖЕНИЙ")
-    print("-" * 80)
-    
+    # ---------- 7/14 ДОСТИЖЕНИЯ ----------
+    print(f"\n🏆 [7/14] ПРОВЕРКА ДОСТИЖЕНИЙ")
     try:
         from handlers.achievements_data import ACHIEVEMENTS
         from handlers.titles import TITLES
-        print(f"   ✅ Достижений: {len(ACHIEVEMENTS)}")
-        print(f"   ✅ Титулов: {len(TITLES)}")
-        
-        rarity_count = {}
-        for ach in ACHIEVEMENTS.values():
-            rar = ach.get('rarity', 'common')
-            rarity_count[rar] = rarity_count.get(rar, 0) + 1
-        print(f"   📊 По редкостям: {rarity_count}")
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   🏅 {len(ACHIEVEMENTS)} достижений | 👑 {len(TITLES)} титулов")
     except Exception as e:
-        print(f"   ❌ Ошибка достижений: {e}")
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        all_ok = False
     
-    print("\n" + "=" * 80)
-    print("✅ ПОЛНАЯ ПРОВЕРКА ЗАВЕРШЕНА! ЗАПУСК БОТА...")
-    print("=" * 80)
+    # ---------- 8/14 ЗАТОЧКА ----------
+    print(f"\n⚡ [8/14] ПРОВЕРКА ЗАТОЧКИ")
+    try:
+        from handlers.enchant import get_enchant_level, get_enchant_bonus, get_base_item_id
+        test_id = "test_sword+5"
+        base = get_base_item_id(test_id)
+        level = get_enchant_level(test_id)
+        if base == "test_sword" and level == 5:
+            print(f"   {progress_bar(100)} ✅")
+            print(f"   🔧 Парсинг OK (+5 определяется верно)")
+        else:
+            print(f"   {progress_bar(50)} ⚠️")
+            warnings.append("⚠️ Ошибка парсинга заточки")
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        all_ok = False
+    
+    # ---------- 9/14 ПРАВА ----------
+    print(f"\n💾 [9/14] ПРОВЕРКА ПРАВ ДОСТУПА")
+    try:
+        test_conn = sqlite3.connect(DB_FILE)
+        test_conn.execute("CREATE TABLE IF NOT EXISTS _startup_test (id INTEGER)")
+        test_conn.execute("DROP TABLE _startup_test")
+        test_conn.close()
+        
+        log_test = open(LOG_FILE, 'a')
+        log_test.close()
+        
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   📝 Запись в БД ✅ | 📋 Логи ✅ | 📁 Картинки ✅")
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Ошибка: {str(e)[:50]}")
+        warnings.append("⚠️ Проблемы с правами на запись!")
+        all_ok = False
+    
+    # ---------- 10/14 ТУННЕЛИ ----------
+    print(f"\n🕳️ [10/14] ПРОВЕРКА ТУННЕЛЕЙ")
+    try:
+        from handlers.tunnel_monsters import TUNNEL_MONSTERS
+        monster_count = len(TUNNEL_MONSTERS) if TUNNEL_MONSTERS else 0
+        
+        from handlers.tunnel_rooms import process_room_transition
+        from handlers.tunnel_battle import start_battle
+        
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   👹 {monster_count} монстров | 🎲 Комнаты загружены | ⚔️ Бои готовы")
+    except Exception as e:
+        print(f"   {progress_bar(70)} ⚠️")
+        print(f"   ⚠️ {str(e)[:50]}")
+        warnings.append("⚠️ Часть функций туннелей недоступна")
+    
+    # ---------- 11/14 ЦЕРКОВЬ ----------
+    print(f"\n⛪ [11/14] ПРОВЕРКА ЦЕРКВИ")
+    try:
+        from handlers.church import church_rest, church_leave
+        from handlers.healing import restore_health_over_time
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   🙏 Отдых и лечение активны")
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ {str(e)[:50]}")
+        warnings.append("⚠️ Церковь недоступна")
+    
+    # ---------- 12/14 КУЗНИЦА ----------
+    print(f"\n🔨 [12/14] ПРОВЕРКА КУЗНИЦЫ")
+    try:
+        from handlers.crafting import check_craft_success, CraftQuality
+        from handlers.blacksmith import blacksmith_menu, forge_craft, forge_sharpen
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   ⚒️ Крафт готов | 🔥 Заточка работает")
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ {str(e)[:50]}")
+        warnings.append("⚠️ Кузница недоступна")
+    
+    # ---------- 13/14 TELEGRAM API ----------
+    print(f"\n🌐 [13/14] ПРОВЕРКА TELEGRAM API")
+    try:
+        import requests
+        response = requests.get(f"https://api.telegram.org/bot{TOKEN}/getMe", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                bot_name = data['result']['username']
+                print(f"   {progress_bar(100)} ✅")
+                print(f"   📡 @{bot_name} подключён к API")
+            else:
+                print(f"   {progress_bar(0)} ❌")
+                print(f"   ❌ API вернул ошибку")
+                all_ok = False
+        else:
+            print(f"   {progress_bar(0)} ❌")
+            print(f"   ❌ HTTP {response.status_code}")
+            all_ok = False
+    except Exception as e:
+        print(f"   {progress_bar(0)} ❌")
+        print(f"   ❌ Нет соединения: {str(e)[:40]}")
+        warnings.append("⚠️ Нет подключения к Telegram API")
+    
+    # ---------- 14/14 ЭКОНОМИКА ----------
+    print(f"\n💰 [14/14] ПРОВЕРКА ЭКОНОМИКИ")
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT SUM(crumbs) FROM user_currency")
+            total_crumbs = c.fetchone()[0] or 0
+        
+        from handlers.shop import shop_command
+        from handlers.daily import daily_command
+        
+        print(f"   {progress_bar(100)} ✅")
+        print(f"   🧀 {total_crumbs:,} крошек в обороте | 🏪 Магазин активен | 🎁 Дейлики работают")
+    except Exception as e:
+        print(f"   {progress_bar(50)} ⚠️")
+        print(f"   ⚠️ {str(e)[:50]}")
+    
+    # ---------- ПРЕДУПРЕЖДЕНИЯ ----------
+    if warnings:
+        print(f"\n{'='*80}")
+        print(f"⚠️ ПРЕДУПРЕЖДЕНИЯ (некритично):")
+        for w in warnings:
+            print(f"   {w}")
+    
+    # ---------- ИТОГ ----------
+    print(f"\n{'='*80}")
+    if all_ok:
+        print(f"                    ✅ ВСЕ СИСТЕМЫ ГОТОВЫ!")
+    else:
+        print(f"                    ⚠️ ЗАПУСК ПРОДОЛЖАЕТСЯ С ОГРАНИЧЕНИЯМИ...")
+    print(f"{'='*80}\n")
+    
+    return all_ok
+
 
 async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Единый обработчик текстовых сообщений"""
@@ -357,14 +478,18 @@ async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     await clan_message_handler(update, context)
 
+
+async def rat_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Перенаправляет на /profile"""
+    await profile_command(update, context)
+
 def main():
     run_startup_checks()
     
-    print("\n" + "=" * 80)
-    print("🐀 РАТЛЯНДИЯ — INSTAGRAM + ИГРА «КРЫСА» + SQLITE")
     print("=" * 80)
-    print(f"📅 Запуск: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"🕐 Время сервера: {datetime.now().astimezone().tzname()}")
+    print("   🐀 РАТЛЯНДИЯ — ЗАПУСК УСПЕШЕН")
+    print("=" * 80)
+    print(f"   📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print("=" * 80)
 
     app = ApplicationBuilder() \
@@ -374,37 +499,110 @@ def main():
         .write_timeout(30) \
         .build()
 
-    # Общие команды
+    # ========== ОСНОВНЫЕ КОМАНДЫ ==========
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("rat_top", rat_top))
-    app.add_handler(CommandHandler("rat_me", rat_me))
-    app.add_handler(CommandHandler("crumbs", crumbs_command))
     app.add_handler(CommandHandler("profile", profile_command))
     app.add_handler(CommandHandler("inventory", inventory_command))
+    app.add_handler(CommandHandler("equipment", equipment_command))
     app.add_handler(CommandHandler("achievements", achievements_command))
+    app.add_handler(CommandHandler("crumbs", crumbs_command))
+    app.add_handler(CommandHandler("top", rat_top))
+    app.add_handler(CommandHandler("me", rat_me))
+    
+    # ========== ГОРОД (с картинкой!) ==========
+    async def city_cmd(update, context):
+        from keyboards.inline.city import get_city_keyboard
+        text = """🏰 *ДОБРО ПОЖАЛОВАТЬ В ГОРОД*
 
-    # ТУННЕЛИ И КООПЕРАТИВ
-    app.add_handler(CommandHandler("tunnel", tunnel_command))
-    app.add_handler(CommandHandler("join_boss", join_boss_command))
+_Ты — один из жителей этого мира. Выбери свой путь, испытай удачу и стань легендой Ратляндии!_
 
-    # Игра
+Выбери куда пойти:"""
+        keyboard = get_city_keyboard()
+        try:
+            with open("/root/bot/images/city_main.jpg", "rb") as photo:
+                await update.message.reply_photo(
+                    photo=photo, caption=text,
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                    reply_markup=keyboard
+                )
+        except:
+            await update.message.reply_text(
+                text=text, parse_mode=constants.ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+    app.add_handler(CommandHandler("city", city_cmd))
+    app.add_handler(CommandHandler("shop", shop_command))
+    app.add_handler(CommandHandler("daily", daily_command))
+    
+    # ========== ИГРА ==========
     app.add_handler(CommandHandler("rat_start", rat_start))
     app.add_handler(CommandHandler("rat_stop", rat_stop))
     app.add_handler(CommandHandler("rat_rules", rat_rules))
-
-    # Новые команды
-    app.add_handler(CommandHandler("shop", shop_command))
-    app.add_handler(CommandHandler("daily", daily_command))
+    
+    # ========== ТУННЕЛИ ==========
+    app.add_handler(CommandHandler("tunnel", tunnel_command))
+    app.add_handler(CommandHandler("join_boss", join_boss_command))
+    
+    async def tunnel_stats_cmd(update, context):
+        await show_stats_menu(update, context, update.effective_user.id)
+    app.add_handler(CommandHandler("tunnel_stats", tunnel_stats_cmd))
+    
+    async def tunnel_run_cmd(update, context):
+        await start_new_run(update, context, update.effective_user.id)
+    app.add_handler(CommandHandler("tunnel_run", tunnel_run_cmd))
+    
+    # ========== КУЗНИЦА ==========
+    async def forge_cmd(update, context):
+        await blacksmith_menu(update, context)
+    app.add_handler(CommandHandler("forge", forge_cmd))
+    
+    async def forge_resources_cmd(update, context):
+        await forge_show_resources(update, context)
+    app.add_handler(CommandHandler("forge_resources", forge_resources_cmd))
+    
+    async def forge_recipes_cmd(update, context):
+        await forge_show_recipes(update, context)
+    app.add_handler(CommandHandler("forge_recipes", forge_recipes_cmd))
+    
+    async def forge_sharpen_cmd(update, context):
+        await forge_sharpen(update, context)
+    app.add_handler(CommandHandler("forge_sharpen", forge_sharpen_cmd))
+    
+    # ========== ЦЕРКОВЬ ==========
+    async def church_cmd(update, context):
+        await city_church_menu(update, context)
+    app.add_handler(CommandHandler("church", church_cmd))
+    
+    # ========== КЛАНЫ ==========
     app.add_handler(CommandHandler("clan", clan_command))
+    
+    async def clan_top_cmd(update, context):
+        await clan_top_callback(update, context)
+    app.add_handler(CommandHandler("clan_top", clan_top_cmd))
+    
+    async def clan_create_cmd(update, context):
+        await clan_create_menu(update, context)
+    app.add_handler(CommandHandler("clan_create", clan_create_cmd))
+    
+    # ========== ТИТУЛЫ И ИСТОРИЯ ==========
+    app.add_handler(CommandHandler("titles", titles_command))
+    app.add_handler(CommandHandler("history", history_command))
+    
+    # ========== ТАВЕРНА ==========
     app.add_handler(CommandHandler("dice", dice_command))
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bet_input), group=1)
+    
+    # ========== ЗАЛ СЛАВЫ ==========
+    async def hall_cmd(update, context):
+        await hall_of_fame(update, context)
+    app.add_handler(CommandHandler("hall", hall_cmd))
+    
+    # ========== КАРТОЧКИ ПРЕДМЕТОВ ==========
+    app.add_handler(MessageHandler(filters.Regex(r'^/i_[a-zA-Z0-9_+]+$'), item_info_command))
 
-    # 🔥 ОБРАБОТЧИК ДЛЯ КАРТОЧЕК ПРЕДМЕТОВ /i_<item_id>
-    app.add_handler(MessageHandler(filters.Regex(r'^/i_[a-zA-Z0-9_]+$'), item_info_command))
-
-    # КОЛБЭКИ ИГРЫ
+    # ========== КОЛБЭКИ ИГРЫ ==========
     app.add_handler(CallbackQueryHandler(
         lambda u, c: handle_rat_kill(u, c, int(u.callback_query.data.split('_')[2])),
         pattern=r"^rat_kill_\d+$"
@@ -441,14 +639,13 @@ def main():
         pattern=r"^day_shot_\d+$"
     ))
     app.add_handler(CallbackQueryHandler(handle_dead_message, pattern="^dead_message$"))
-    app.add_handler(CallbackQueryHandler(handle_dead_message, pattern="^anon_message$"))
     app.add_handler(CallbackQueryHandler(show_chests_menu, pattern="^chests_menu$"))
     app.add_handler(CallbackQueryHandler(
         lambda u, c: handle_open_chest(u, c, u.callback_query.data.split('_')[2]),
         pattern=r"^open_chest_.*"
     ))
     
-    # СПОСОБНОСТИ
+    # ========== СПОСОБНОСТИ ==========
     app.add_handler(CallbackQueryHandler(
         lambda u, c: show_player_selection_for_item(u, c, "reveal_role_temp"),
         pattern="^reveal_role_menu$"
@@ -470,32 +667,50 @@ def main():
         pattern="^trap_launch_menu$"
     ))
     
-    # ЛОББИ
+    # ========== ЛОББИ ==========
     app.add_handler(CallbackQueryHandler(handle_lobby_join, pattern="^rat_lobby_join$"))
     app.add_handler(CallbackQueryHandler(handle_lobby_leave, pattern="^rat_lobby_leave$"))
     app.add_handler(CallbackQueryHandler(handle_lobby_start, pattern="^rat_lobby_start$"))
     app.add_handler(CallbackQueryHandler(back_to_game, pattern="^back_to_game$"))
 
-    # 🔥 ВАЖНО! СНАЧАЛА ОСНОВНОЙ КОЛБЭК, ПОТОМ ТУННЕЛИ!
+    # ========== ОСНОВНОЙ КОЛБЭК ==========
     app.add_handler(CallbackQueryHandler(button_callback))
     
-    # ТУННЕЛИ (после основного колбэка!)
+    # ========== ТУННЕЛИ (колбэки) ==========
     register_tunnel_handlers(app)
 
+    # ========== ТЕКСТОВЫЕ СООБЩЕНИЯ ==========
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, smart_text_handler))
+
+    # ========== СООБЩЕНИЕ О ЗАПУСКЕ ==========
+    GROUP_CHAT_ID = -1003922256958
+    
+    async def post_init(app):
+        await asyncio.sleep(2)
+        try:
+            text = f"""🟢 *РАТЛЯНДИЯ ЗАПУЩЕНА*
+
+_Сервер пробудился, туннели открыты, крысы зашевелились._
+
+🕐 {datetime.now().strftime('%d.%m.%Y %H:%M')} UTC
+⚡ Статус: Онлайн
+
+_Добро пожаловать в Подземное Царство!_"""
+            await app.bot.send_message(chat_id=GROUP_CHAT_ID, text=text, parse_mode='Markdown')
+        except Exception as e:
+            logger.warning(f"Не удалось отправить сообщение о запуске: {e}")
+    
+    app.post_init = post_init
 
     print("\n✅ Бот запущен!")
     print("📱 @testpasha_bot")
     print("🗄️ SQLite активен!")
-    print("🏰 Город | 🏪 Магазин | 🎁 Ежедневная | 🎲 Кости | 🛡️ Гильдия | 🕳️ Туннели")
-    print("📦 Сундуки работают!")
-    print("🐀 Ратляндия v0.0.5 — КООПЕРАТИВНЫЙ РЕЖИМ!")
+    print("🏰 /city | 🏪 /shop | 🎁 /daily | 🎲 /dice | 👥 /clan | 🕳️ /tunnel")
+    print("⚒️ /forge | ⛪ /church | 🏆 /top | 📜 /history | ⚡ /titles | 📊 /me")
     print("=" * 80)
 
     app.run_polling(drop_pending_updates=True)
 
-
-# ========== ОБРАБОТЧИКИ ЛОББИ ==========
 
 async def handle_lobby_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

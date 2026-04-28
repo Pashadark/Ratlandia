@@ -13,7 +13,7 @@ from handlers.inventory import (
     get_available_chests, format_temp_effects, get_active_temp_effects
 )
 from handlers.inventory import get_action_history
-from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, EQUIPMENT_SLOTS, CHESTS
+from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, EQUIPMENT_SLOTS, CHESTS, WEAPON_DAMAGE
 from handlers.achievements_data import ACHIEVEMENTS
 from handlers.titles import get_active_title, check_and_unlock_titles
 from handlers.game_rat import active_games
@@ -22,6 +22,7 @@ from handlers.healing import restore_health_over_time
 from handlers.tunnel_monsters import get_tunnel_run
 from handlers.tunnel_effects import get_active_blessings
 from handlers.effects import get_player_effects
+from handlers.enchant import get_enchant_level, get_enchant_bonus, get_base_item_id
 from keyboards.inline.profile import (
     get_profile_keyboard,
     get_inventory_keyboard,
@@ -102,36 +103,101 @@ def format_profile_text(user_name: str, rating: dict, equipment: dict, achieveme
         effects_text = ""
         if effects_list:
             effects_text = "\n\n*Эффекты:*\n" + "\n".join(effects_list)
+        
         def format_slot(slot_key, icon):
-            if slot_key in equipment and equipment[slot_key] in EQUIPMENT:
-                item = EQUIPMENT[equipment[slot_key]]
-                name = item['name']
-                return f"{icon} *{name}*"
-            else:
-                return f"{icon} _пусто_"
+            if slot_key in equipment:
+                item_id = equipment[slot_key]
+                base_id = get_base_item_id(item_id)
+                item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id))
+                if item:
+                    name = item['name']
+                    rarity = item.get("rarity", "common")
+                    rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+                    ench = get_enchant_level(item_id)
+                    ench_text = f" +{ench}" if ench > 0 else ""
+                    return f"{icon} [{rarity_emoji}] *{name}*{ench_text}"
+            return f"{icon} _пусто_"
+        
         head_line = format_slot('head', '🎩')
         weapon_line = format_slot('weapon', '⚔️')
         armor_line = format_slot('armor', '🛡️')
         access_line = format_slot('accessory', '💍')
         
-        strength_text = f"💪 Сила: {base_stats['strength']}"
-        if bonus_strength > 0:
-            strength_text += f" (+{bonus_strength} от экип.)"
+        total_strength = base_stats['strength'] + bonus_strength
+        total_agility = base_stats['agility'] + bonus_agility
+        total_intelligence = base_stats['intelligence'] + bonus_intelligence
         
-        agility_text = f"🍀 Ловкость: {base_stats['agility']}"
-        if bonus_agility > 0:
-            agility_text += f" (+{bonus_agility} от экип.)"
+        strength_text = f"💪 Сила: *{total_strength}*"
+        agility_text = f"🍀 Ловкость: *{total_agility}*"
+        intelligence_text = f"🧠 Интеллект: *{total_intelligence}*"
         
-        intelligence_text = f"🧠 Интеллект: {base_stats['intelligence']}"
-        if bonus_intelligence > 0:
-            intelligence_text += f" (+{bonus_intelligence} от экип.)"
+        # Расчёт урона
+        weapon_item_id = equipment.get('weapon', '')
+        min_dmg = total_strength
+        max_dmg = total_strength + 3
+        try:
+            base_weapon_id = get_base_item_id(weapon_item_id)
+            wd = WEAPON_DAMAGE.get(base_weapon_id, WEAPON_DAMAGE.get(weapon_item_id, {}))
+            if wd:
+                min_dmg = wd.get('min_damage', total_strength) + bonus_strength
+                max_dmg = wd.get('max_damage', total_strength + 3) + bonus_strength
+        except:
+            pass
         
-        health_text = f"❤️ Здоровье: {base_stats['current_health']}/{base_stats['max_health']}"
+        # Бонус от заточки оружия
+        if weapon_item_id:
+            weapon_ench = get_enchant_level(weapon_item_id)
+            if weapon_ench > 0:
+                ench_bonus = get_enchant_bonus(weapon_item_id)
+                min_dmg += ench_bonus.get('enchant_damage_min', 0)
+                max_dmg += ench_bonus.get('enchant_damage_max', 0)
+        
+        damage_text = f"🗡 Урон: *{min_dmg}-{max_dmg}*"
+        
+        # Расчёт защиты
+        armor_item_id = equipment.get('armor', '')
+        defense = base_stats.get('defense', 0)
+        try:
+            base_armor_id = get_base_item_id(armor_item_id)
+            armor_data = ALL_ITEMS.get(base_armor_id, ALL_ITEMS.get(armor_item_id, {}))
+            defense += armor_data.get('effect', {}).get('damage_reduction', 0)
+        except:
+            pass
+        
+        # Бонус от заточки брони и шлема
+        for eq_slot in ['armor', 'head']:
+            eq_item_id = equipment.get(eq_slot, '')
+            if eq_item_id:
+                eq_ench = get_enchant_level(eq_item_id)
+                if eq_ench > 0:
+                    ench_bonus = get_enchant_bonus(eq_item_id)
+                    defense += ench_bonus.get('enchant_defense', 0)
+        
+        defense_text = f"🛡 Защита: *{defense}*"
+        
+        # Расчёт маны
+        mana = base_stats.get('mana', 200)
+        max_mana = base_stats.get('max_mana', 200)
+        mana_text = f"🔮 Мана: *{mana}/{max_mana}*"
+        
+        health_text = f"❤️ Здоровье: *{base_stats['current_health']}/{base_stats['max_health']}*"
+        
+        # Класс из базы
+        player_class_db = base_stats.get('player_class', 'warrior')
+        class_names = {
+            "warrior": "⚔️ Воин",
+            "tank": "🛡️ Танк", 
+            "mage": "🔮 Маг",
+            "rogue": "🗡️ Разбойник",
+            "berserker": "💪 Берсерк",
+            "archer": "🏹 Лучник"
+        }
+        player_class = class_names.get(player_class_db, "⚔️ Воин")
         
         text = f"""*Профиль:*
 
 ⚔️ {escape_markdown(nickname)} | {title_text}
-⭐ Уровень {level}
+{player_class} | ⭐ Уровень {level}
 ✨ Опыт: {xp_in_level}/{xp_needed} XP
 🎒 Предметов: {items_count}
 🧀 Крошек: {crumbs}
@@ -140,8 +206,12 @@ def format_profile_text(user_name: str, rating: dict, equipment: dict, achieveme
 {strength_text}
 {agility_text}
 {intelligence_text}
+
+{damage_text}
+{defense_text}
+{mana_text}
 {health_text}
-🎯 Свободных очков: {base_stats['stat_points']}{effects_text}
+🎯 Свободных очков: *{base_stats['stat_points']}*{effects_text}
 
 *Экипировка:*
 {head_line}
@@ -197,31 +267,28 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = format_profile_text(user_name, rating, equipment, achievements, inventory, xp, level, xp_in_level, xp_needed, user_id)
         keyboard = get_profile_keyboard(user_name, level, rating['wins'])
         avatar_path = get_avatar_path(level)
+        
+        if update.callback_query:
+            try:
+                await update.callback_query.message.delete()
+            except:
+                pass
+        
         try:
             with open(avatar_path, "rb") as photo:
-                if update.callback_query:
-                    await update.callback_query.message.delete()
-                    await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-                else:
-                    await update.message.reply_photo(photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-        except Exception as e:
-            logger.warning(f"Не удалось загрузить аватар {avatar_path}: {e}")
+                await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, 
+                                             parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        except:
             try:
                 with open("/root/bot/images/profile.jpg", "rb") as photo:
-                    if update.callback_query:
-                        await update.callback_query.message.delete()
-                        await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-                    else:
-                        await update.message.reply_photo(photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-            except Exception as e2:
-                logger.warning(f"Не удалось загрузить profile.jpg: {e2}")
-                if update.callback_query:
-                    await update.callback_query.edit_message_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-                else:
-                    await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+                    await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, 
+                                                 parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+            except:
+                await context.bot.send_message(chat_id=user_id, text=text, 
+                                               parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
     except Exception as e:
         logger.error(f"❌ Ошибка в profile_command: {e}", exc_info=True)
-        await update.message.reply_text("❌ Произошла ошибка при загрузке профиля")
+        await context.bot.send_message(chat_id=user_id, text="❌ Произошла ошибка при загрузке профиля")
 
 async def inventory_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"🎒 inventory_command вызван")
@@ -239,10 +306,10 @@ async def show_inventory_main(update: Update, context: ContextTypes.DEFAULT_TYPE
         inventory = get_inventory(user_id)
         crumbs = get_crumbs(user_id)
         all_count = sum(inventory.values())
-        weapon_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(iid, {}).get("slot") == "weapon")
-        armor_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(iid, {}).get("type") == "equipment" and ALL_ITEMS.get(iid, {}).get("slot") in ["armor", "head"])
-        consumable_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(iid, {}).get("type") == "consumable")
-        accessory_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(iid, {}).get("slot") == "accessory")
+        weapon_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(get_base_item_id(iid), {}).get("slot") == "weapon")
+        armor_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(get_base_item_id(iid), {}).get("type") == "equipment" and ALL_ITEMS.get(get_base_item_id(iid), {}).get("slot") in ["armor", "head"])
+        consumable_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(get_base_item_id(iid), {}).get("type") == "consumable")
+        accessory_count = sum(qty for iid, qty in inventory.items() if ALL_ITEMS.get(get_base_item_id(iid), {}).get("slot") == "accessory")
         total_chests = 0
         try:
             chests_list = get_available_chests(user_id)
@@ -283,7 +350,8 @@ async def show_filtered_inventory(update: Update, context: ContextTypes.DEFAULT_
         rarity_order = {"mythic": 5, "legendary": 4, "epic": 3, "rare": 2, "common": 1}
         filtered_items = []
         for item_id, qty in inventory.items():
-            item = ALL_ITEMS.get(item_id, {})
+            base_id = get_base_item_id(item_id)
+            item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id, {}))
             if qty <= 0 or not item: continue
             if filter_type == "all": fits_filter = True
             elif filter_type == "weapon" and item.get("slot") == "weapon": fits_filter = True
@@ -307,14 +375,16 @@ async def show_filtered_inventory(update: Update, context: ContextTypes.DEFAULT_
         else:
             text = ""
             for idx, (item_id, item, qty) in enumerate(page_items, start_idx + 1):
-                equipped = " (надето)" if item_id in equipment.values() else ""
+                equipped = " (надето)" if item_id in equipment.values() or get_base_item_id(item_id) in [get_base_item_id(e) for e in equipment.values()] else ""
                 rarity = item.get("rarity", "common")
                 tag = rarity_tags.get(rarity, "[ОБЫЧ]")
                 desc = item.get("desc", "")
                 if "—" in desc: desc = desc.split("—")[-1].strip()
                 icon = item.get('icon', '📦')
                 name = item.get('name', 'Предмет')
-                text += f"{idx}. {icon} {tag} *{name}*{equipped}\n    _{desc}_\n\n"
+                ench = get_enchant_level(item_id)
+                ench_text = f" +{ench}" if ench > 0 else ""
+                text += f"{idx}. {icon} {tag} *{name}*{ench_text}{equipped}\n    _{desc}_\n\n"
         if total_pages > 1:
             paginator = InlineKeyboardPaginator(total_pages, current_page=page, data_pattern=f'inventory_page_{filter_type}#{{page}}')
             paginator.add_after(InlineKeyboardButton("Назад", callback_data="profile_inventory"))
@@ -342,17 +412,26 @@ async def equipment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         inventory = get_inventory(user_id)
         available_count = 0
         for item_id, qty in inventory.items():
-            if item_id in EQUIPMENT and qty > 0 and item_id not in equipment.values():
+            base_id = get_base_item_id(item_id)
+            if base_id in ALL_ITEMS and qty > 0 and item_id not in equipment.values():
                 available_count += qty
         text = f"🛡️ <b>ЭКИПИРОВКА</b>\n\n"
         slots = [('head', '🎩', 'Шлем'), ('weapon', '⚔️', 'Оружие'), ('armor', '🛡️', 'Броня'), ('accessory', '💍', 'Аксессуар')]
         for slot, emoji, name in slots:
-            if slot in equipment and equipment[slot] in EQUIPMENT:
-                item = EQUIPMENT[equipment[slot]]
+            if slot in equipment:
                 item_id = equipment[slot]
-                qty = inventory.get(item_id, 1)
-                qty_text = f" (x{qty})" if qty > 1 else ""
-                text += f"🧳 <b>{name}</b>: {emoji} <b>{item['name']}</b>{qty_text} /i_{item_id}\n"
+                base_id = get_base_item_id(item_id)
+                item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id))
+                if item:
+                    qty = inventory.get(item_id, 1)
+                    qty_text = f" (x{qty})" if qty > 1 else ""
+                    rarity = item.get("rarity", "common")
+                    rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+                    ench = get_enchant_level(item_id)
+                    ench_text = f" +{ench}" if ench > 0 else ""
+                    text += f"🧳 <b>{name}</b>: {emoji} [{rarity_emoji}] <b>{item['name']}</b>{ench_text}{qty_text} /i_{item_id}\n"
+                else:
+                    text += f"🧳 <b>{name}</b>: <i>пусто</i>\n"
             else:
                 text += f"🧳 <b>{name}</b>: <i>пусто</i>\n"
         text += f"\n📦 <b>Доступно предметов</b>: {available_count}\n"
@@ -382,8 +461,9 @@ async def show_available_for_slot(update: Update, context: ContextTypes.DEFAULT_
         equipment = get_equipment(user_id)
         available_items = []
         for item_id, qty in inventory.items():
-            if item_id in EQUIPMENT and qty > 0:
-                item = EQUIPMENT[item_id]
+            base_id = get_base_item_id(item_id)
+            item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id))
+            if item and qty > 0:
                 if item.get("slot") == slot and item_id not in equipment.values():
                     for _ in range(qty):
                         available_items.append((item_id, item))
@@ -402,13 +482,14 @@ async def show_available_for_slot(update: Update, context: ContextTypes.DEFAULT_
             text += "<i>Нет доступных предметов</i>"
             reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🛡️ Назад к экипировке", callback_data="profile_equipment")]])
         else:
-            rarity_tags = {"common": "\\[ОБЫЧ]", "rare": "\\[РЕДК]", "epic": "\\[ЭПИК]", "legendary": "\\[ЛЕГ]", "mythic": "\\[МИФ]"}
             for idx, (item_id, item) in enumerate(page_items, start_idx + 1):
                 rarity = item.get("rarity", "common")
-                tag = rarity_tags.get(rarity, "\\[ОБЫЧ]")
+                rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
                 desc = item.get("desc", "")
                 if "—" in desc: desc = desc.split("—")[-1].strip()
-                text += f"{idx}. {tag} <b>{item['name']}</b>\n   <i>{desc}</i>\n\n"
+                ench = get_enchant_level(item_id)
+                ench_text = f" +{ench}" if ench > 0 else ""
+                text += f"{idx}. [{rarity_emoji}] <b>{item['name']}</b>{ench_text}\n   <i>{desc}</i>\n\n"
             keyboard = []
             for idx, (item_id, item) in enumerate(page_items, start_idx + 1):
                 keyboard.append([InlineKeyboardButton(f"{idx}. Надеть", callback_data=f"equip_from_list_{item_id}")])
@@ -437,8 +518,9 @@ async def show_equipment_list_by_slot(update: Update, context: ContextTypes.DEFA
     text = f"{slot_emoji[slot]} <b>{slot_names[slot]} В ИНВЕНТАРЕ</b>\n\n"
     found_items = []
     for item_id, qty in inventory.items():
-        if item_id in EQUIPMENT and qty > 0:
-            item = EQUIPMENT[item_id]
+        base_id = get_base_item_id(item_id)
+        item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id))
+        if item and qty > 0:
             if item.get("slot") == slot:
                 found_items.append((item_id, item, qty))
     if not found_items:
@@ -447,7 +529,11 @@ async def show_equipment_list_by_slot(update: Update, context: ContextTypes.DEFA
         for item_id, item, qty in found_items:
             qty_text = f" (x{qty})" if qty > 1 else ""
             equipped = " ✅" if item_id in equipment.values() else ""
-            text += f"{item['icon']} {item['name']}{qty_text} /i_{item_id}{equipped}\n"
+            rarity = item.get("rarity", "common")
+            rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+            ench = get_enchant_level(item_id)
+            ench_text = f" +{ench}" if ench > 0 else ""
+            text += f"[{rarity_emoji}] {item['icon']} {item['name']}{ench_text}{qty_text} /i_{item_id}{equipped}\n"
     keyboard = get_equipment_slots_keyboard()
     await query.message.delete()
     await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.HTML, reply_markup=keyboard)
@@ -456,7 +542,8 @@ async def handle_equip_from_list(update: Update, context: ContextTypes.DEFAULT_T
     user_id = update.effective_user.id
     try:
         if equip_item(user_id, item_id):
-            await update.callback_query.answer(f"✅ {ALL_ITEMS[item_id]['name']} надет!")
+            item = ALL_ITEMS.get(get_base_item_id(item_id), ALL_ITEMS.get(item_id, {"name": "Предмет"}))
+            await update.callback_query.answer(f"✅ {item['name']} надет!")
         else:
             await update.callback_query.answer("❌ Не удалось надеть предмет!", show_alert=True)
         await equipment_command(update, context)
@@ -505,9 +592,17 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         query = update.callback_query
         await query.message.delete()
-        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        try:
+            with open("/root/bot/images/history.jpg", "rb") as photo:
+                await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        except:
+            await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
     else:
-        await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        try:
+            with open("/root/bot/images/history.jpg", "rb") as photo:
+                await update.message.reply_photo(photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        except:
+            await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
 
 async def history_command_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает ВСЮ историю действий (50 записей)"""
@@ -539,9 +634,17 @@ async def history_command_all(update: Update, context: ContextTypes.DEFAULT_TYPE
     if update.callback_query:
         query = update.callback_query
         await query.message.delete()
-        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        try:
+            with open("/root/bot/images/history.jpg", "rb") as photo:
+                await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        except:
+            await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
     else:
-        await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        try:
+            with open("/root/bot/images/history.jpg", "rb") as photo:
+                await update.message.reply_photo(photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        except:
+            await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
 
 async def achievements_command(update: Update, context: ContextTypes.DEFAULT_TYPE, show_all: bool = False):
     if update.effective_chat.type != "private":
@@ -601,18 +704,34 @@ async def item_info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text.startswith('/i_'): return
     item_id = text.replace('/i_', '').split()[0]
     user_id = update.effective_user.id
-    item = ALL_ITEMS.get(item_id)
+    
+    base_id = get_base_item_id(item_id)
+    item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id))
     if not item:
         await update.message.reply_text("❌ Предмет не найден"); return
+    
     inventory = get_inventory(user_id)
     qty = inventory.get(item_id, 0)
     if qty <= 0:
-        await update.message.reply_text("❌ У тебя нет этого предмета"); return
+        # Проверим может есть заточенная версия
+        for inv_id, inv_qty in inventory.items():
+            if get_base_item_id(inv_id) == base_id and inv_qty > 0:
+                item_id = inv_id
+                qty = inv_qty
+                break
+        if qty <= 0:
+            await update.message.reply_text("❌ У тебя нет этого предмета"); return
+    
     rarity = item.get("rarity", "common")
     rarity_names = {"common": "Обычное", "rare": "Редкое", "epic": "Эпическое", "legendary": "Легендарное", "mythic": "Мифическое"}
     rarity_name = rarity_names.get(rarity, "Обычное")
     icon = item.get('icon', '📦')
     name = item.get('name', 'Предмет')
+    
+    ench_level = get_enchant_level(item_id)
+    if ench_level > 0:
+        name = f"{name} +{ench_level}"
+    
     text = f"{icon} *{name}*\n\n"
     lore = item.get('lore', '')
     if lore: text += f"_{lore}_\n\n"
@@ -623,6 +742,15 @@ async def item_info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif item.get("type") == "consumable": text += f"🧪 Тип: Расходник\n"
     elif item.get("type") == "chest": text += f"📦 Тип: Сундук\n"
     text += f"💎 Редкость: {rarity_name}\n"
+    
+    if ench_level > 0:
+        text += f"⚡ Заточка: +{ench_level}\n"
+        ench_bonus = get_enchant_bonus(item_id)
+        if ench_bonus.get('enchant_damage_min'):
+            text += f"🗡 Урон от заточки: +{ench_bonus['enchant_damage_min']}-{ench_bonus['enchant_damage_max']}\n"
+        if ench_bonus.get('enchant_defense'):
+            text += f"🛡 Защита от заточки: +{ench_bonus['enchant_defense']}\n"
+    
     effects = item.get("effect", {})
     for key, value in effects.items():
         if key == "strength": text += f"💪 Сила: +{value}\n"
@@ -649,7 +777,8 @@ async def handle_equip(update: Update, context: ContextTypes.DEFAULT_TYPE, item_
     user_id = update.effective_user.id
     try:
         if equip_item(user_id, item_id):
-            await update.callback_query.answer(f"✅ {ALL_ITEMS[item_id]['name']} надет!")
+            item = ALL_ITEMS.get(get_base_item_id(item_id), ALL_ITEMS.get(item_id, {"name": "Предмет"}))
+            await update.callback_query.answer(f"✅ {item['name']} надет!")
         else:
             await update.callback_query.answer("❌ Не удалось надеть предмет!", show_alert=True)
         await equipment_command(update, context)
@@ -668,7 +797,7 @@ async def handle_use_consumable(update: Update, context: ContextTypes.DEFAULT_TY
             await update.callback_query.answer("❌ Ты не в игре или мёртв!", show_alert=True)
             return
         if use_consumable(user_id, item_id):
-            item = CONSUMABLES.get(item_id, ALL_ITEMS.get(item_id, {"name": "Предмет"}))
+            item = CONSUMABLES.get(get_base_item_id(item_id), ALL_ITEMS.get(item_id, {"name": "Предмет"}))
             await update.callback_query.answer(f"✅ {item['name']} использован!")
         else:
             await update.callback_query.answer("❌ Не удалось использовать предмет!", show_alert=True)

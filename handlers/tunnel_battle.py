@@ -2,6 +2,7 @@
 
 import random
 import sqlite3
+import json
 from typing import Dict, Tuple
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -39,6 +40,53 @@ DB_FILE = "/root/bot/ratings.db"
 
 import logging
 logger = logging.getLogger(__name__)
+
+# ========== СОХРАНЕНИЕ БОЯ В БД ==========
+
+def save_battle_to_db(user_id: int, battle_state: dict, monster_state: dict, player_state: dict, player_defense: str):
+    """Сохраняет состояние боя в БД"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.execute("""INSERT OR REPLACE INTO tunnel_battle_save 
+                           (user_id, battle_state, monster_state, player_state, player_defense, saved_at)
+                           VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+                        (user_id, json.dumps(battle_state), json.dumps(monster_state), 
+                         json.dumps(player_state), player_defense))
+            conn.commit()
+        logger.info(f"💾 Бой сохранён в БД для user_id={user_id}")
+    except Exception as e:
+        logger.error(f"❌ Ошибка сохранения боя: {e}")
+
+
+def load_battle_from_db(user_id: int):
+    """Загружает состояние боя из БД"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            row = conn.execute("""SELECT battle_state, monster_state, player_state, player_defense 
+                                  FROM tunnel_battle_save WHERE user_id = ?""", (user_id,)).fetchone()
+            if row:
+                logger.info(f"📂 Бой загружен из БД для user_id={user_id}")
+                return {
+                    "battle_state": json.loads(row[0]),
+                    "monster_state": json.loads(row[1]),
+                    "player_state": json.loads(row[2]),
+                    "player_defense": row[3]
+                }
+    except Exception as e:
+        logger.error(f"❌ Ошибка загрузки боя: {e}")
+    return None
+
+
+def delete_battle_from_db(user_id: int):
+    """Удаляет сохранённый бой из БД"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            conn.execute("DELETE FROM tunnel_battle_save WHERE user_id = ?", (user_id,))
+            conn.commit()
+        logger.info(f"🗑️ Бой удалён из БД для user_id={user_id}")
+    except Exception as e:
+        logger.error(f"❌ Ошибка удаления боя: {e}")
+
 
 # ========== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ==========
 
@@ -309,6 +357,10 @@ async def start_battle(update: Update, context: ContextTypes.DEFAULT_TYPE,
     context.user_data["tunnel_monster_state"] = monster_state
     context.user_data["tunnel_player_state"] = player_state
     context.user_data["tunnel_battle_log"] = ""
+    context.user_data["tunnel_player_defense"] = ""
+    
+    # 💾 Сохраняем бой в БД
+    save_battle_to_db(user_id, battle_state, monster_state, player_state, "")
     
     await show_defense_selection(update, context, user_id, monster, battle_state, monster_state, player_state)
 
@@ -463,11 +515,26 @@ async def process_defense_choice(update: Update, context: ContextTypes.DEFAULT_T
     player_state = context.user_data.get("tunnel_player_state", {})
     
     if not battle_state:
-        await query.answer("❌ Бой не найден!")
-        return
+        # 🔄 Пытаемся восстановить бой из БД
+        saved = load_battle_from_db(user_id)
+        if saved:
+            context.user_data["tunnel_battle"] = saved["battle_state"]
+            context.user_data["tunnel_monster_state"] = saved["monster_state"]
+            context.user_data["tunnel_player_state"] = saved["player_state"]
+            context.user_data["tunnel_player_defense"] = saved["player_defense"]
+            battle_state = saved["battle_state"]
+            monster_state = saved["monster_state"]
+            player_state = saved["player_state"]
+            await query.answer("⚠️ Бой восстановлен из сохранения!", show_alert=True)
+        else:
+            await query.answer("❌ Бой не найден!")
+            return
     
     context.user_data["tunnel_player_defense"] = defense_part
     monster = get_monster(battle_state["monster_id"])
+    
+    # 💾 Сохраняем бой в БД
+    save_battle_to_db(user_id, battle_state, monster_state, player_state, defense_part)
     
     await query.answer(f"🛡️ Ты защищаешь {defense_part}!")
     await show_attack_selection(update, context, user_id, monster, battle_state, monster_state, player_state, defense_part)
@@ -560,10 +627,12 @@ async def process_player_attack(update: Update, context: ContextTypes.DEFAULT_TY
                 context.user_data["tunnel_monster_state"] = monster_state
                 context.user_data["tunnel_player_state"] = player_state
                 context.user_data["tunnel_battle_log"] = battle_log
+                save_battle_to_db(user_id, battle_state, monster_state, player_state, player_defense)
                 await show_defense_selection(update, context, user_id, monster, battle_state, monster_state, player_state)
                 return
         
         context.user_data["tunnel_battle_log"] = battle_log
+        delete_battle_from_db(user_id)
         await end_battle_victory(update, context, user_id, monster, battle_state)
         return
     
@@ -607,11 +676,13 @@ async def process_player_attack(update: Update, context: ContextTypes.DEFAULT_TY
     
     if battle_state["player_hp"] <= 0:
         context.user_data["tunnel_battle_log"] = battle_log
+        delete_battle_from_db(user_id)
         await end_battle_defeat(update, context, user_id, monster, battle_state)
         return
     
     if battle_state["monster_hp"] <= 0:
         context.user_data["tunnel_battle_log"] = battle_log
+        delete_battle_from_db(user_id)
         await end_battle_victory(update, context, user_id, monster, battle_state)
         return
     
@@ -681,11 +752,13 @@ async def process_player_attack(update: Update, context: ContextTypes.DEFAULT_TY
     
     if battle_state["player_hp"] <= 0:
         context.user_data["tunnel_battle_log"] = battle_log
+        delete_battle_from_db(user_id)
         await end_battle_defeat(update, context, user_id, monster, battle_state)
         return
     
     if battle_state["monster_hp"] <= 0:
         context.user_data["tunnel_battle_log"] = battle_log
+        delete_battle_from_db(user_id)
         await end_battle_victory(update, context, user_id, monster, battle_state)
         return
     
@@ -693,6 +766,9 @@ async def process_player_attack(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data["tunnel_monster_state"] = monster_state
     context.user_data["tunnel_player_state"] = player_state
     context.user_data["tunnel_battle_log"] = battle_log
+    
+    # 💾 Сохраняем бой после каждого хода
+    save_battle_to_db(user_id, battle_state, monster_state, player_state, player_defense)
     
     await show_defense_selection(update, context, user_id, monster, battle_state, monster_state, player_state)
 
@@ -741,7 +817,6 @@ async def end_battle_victory(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     await query.message.delete()
     
-    # 🆕 КАРТИНКА ПОБЕДЫ ДЛЯ ОДИНОЧНОГО БОЯ
     image_path = "/root/bot/images/battle_victory.jpg"
     try:
         with open(image_path, "rb") as photo:
@@ -960,7 +1035,6 @@ async def process_coop_attack(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         keyboard = [[InlineKeyboardButton("🏠 В нору", callback_data="tunnel_menu")]]
         
-        # 🆕 КАРТИНКА ПОБЕДЫ ДЛЯ КООПЕРАТИВА (ДВЕ МЫШИ)
         image_path = "/root/bot/images/coop_victory.jpg"
         try:
             with open(image_path, "rb") as photo:
@@ -1110,6 +1184,7 @@ async def process_flee(update: Update, context: ContextTypes.DEFAULT_TYPE, user_
         context.user_data.pop("tunnel_player_state", None)
         context.user_data.pop("tunnel_player_defense", None)
         context.user_data.pop("tunnel_battle_log", None)
+        delete_battle_from_db(user_id)
         
         await safe_edit_or_send(query, user_id, text, keyboard, context)
     else:
@@ -1122,11 +1197,16 @@ async def process_flee(update: Update, context: ContextTypes.DEFAULT_TYPE, user_
         text += f"❤️ Здоровье: {battle_state['player_hp']}/{battle_state['player_max_hp']}"
         
         if battle_state["player_hp"] <= 0:
+            delete_battle_from_db(user_id)
             await end_battle_defeat(update, context, user_id, monster, battle_state)
             return
         
         update_character_stats(user_id, current_health=battle_state["player_hp"])
         context.user_data["tunnel_battle"] = battle_state
+        save_battle_to_db(user_id, battle_state, 
+                         context.user_data.get("tunnel_monster_state", {}),
+                         context.user_data.get("tunnel_player_state", {}),
+                         context.user_data.get("tunnel_player_defense", ""))
         
         keyboard = [[InlineKeyboardButton("⚔️ Продолжить бой", callback_data="tunnel_continue_battle")]]
         
@@ -1152,39 +1232,46 @@ async def handle_tunnel_flee_new(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     user_id = query.from_user.id
     
-    logger.info("🔴🔴🔴 ========================================")
     logger.info("🔴🔴🔴 handle_tunnel_flee_new ВЫЗВАНА!")
-    logger.info(f"🔴🔴🔴 user_id = {user_id}")
     
     battle_state = context.user_data.get("tunnel_battle", {})
-    logger.info(f"🔴🔴🔴 battle_state = {battle_state}")
-    logger.info(f"🔴🔴🔴 battle_state пустой? {not battle_state}")
-    logger.info(f"🔴🔴🔴 context.user_data ключи: {list(context.user_data.keys())}")
     
-    # Проверяем run_data
-    run_data = get_tunnel_run(user_id)
-    logger.info(f"🔴🔴🔴 run_data = {run_data}")
-    
+    # 🔄 Если battle_state пустой — пробуем восстановить из БД
     if not battle_state:
-        logger.warning("🔴🔴🔴 battle_state ПУСТОЙ! Вызываю go_home")
-        from handlers.tunnel_rooms import go_home
-        await go_home(update, context, user_id)
-        return
+        logger.warning("🔴🔴🔴 battle_state ПУСТОЙ! Ищем в БД...")
+        saved = load_battle_from_db(user_id)
+        if saved:
+            context.user_data["tunnel_battle"] = saved["battle_state"]
+            context.user_data["tunnel_monster_state"] = saved["monster_state"]
+            context.user_data["tunnel_player_state"] = saved["player_state"]
+            context.user_data["tunnel_player_defense"] = saved["player_defense"]
+            battle_state = saved["battle_state"]
+            await query.answer("⚠️ Бой восстановлен! Продолжай сражаться.", show_alert=True)
+            logger.info("🔴🔴🔴 Бой восстановлен из БД!")
+        else:
+            # Пробуем найти run_data и вернуть в туннели
+            run_data = get_tunnel_run(user_id)
+            if run_data:
+                logger.warning("🔴🔴🔴 Боя нет, но есть run_data. Возвращаем в туннели.")
+                await query.answer("⚠️ Данные боя утеряны. Возвращаю в туннели.", show_alert=True)
+                from handlers.tunnel_rooms import enter_room
+                await enter_room(update, context, user_id)
+                return
+            else:
+                logger.warning("🔴🔴🔴 Ни боя, ни run_data. Отправляем домой.")
+                from handlers.tunnel_rooms import go_home
+                await go_home(update, context, user_id)
+                return
     
-    logger.info(f"🔴🔴🔴 monster_id = {battle_state.get('monster_id')}")
     monster = get_monster(battle_state["monster_id"])
-    logger.info(f"🔴🔴🔴 monster = {monster['name'] if monster else 'None'}")
     
     await query.message.delete()
-    logger.info("🔴🔴🔴 Сообщение удалено, бросаем кубики...")
     
     dice1 = random.randint(1, 6)
     dice2 = random.randint(1, 6)
     total = dice1 + dice2
-    logger.info(f"🔴🔴🔴 Кубики: {dice1} + {dice2} = {total}")
     
     # 🎲 ПЕРВЫЙ КУБИК
-    logger.info("🔴🔴🔴 Отправляю ПЕРВЫЙ кубик...")
     try:
         with open("/root/bot/images/dice_1.jpg", "rb") as photo:
             msg = await context.bot.send_photo(
@@ -1193,28 +1280,21 @@ async def handle_tunnel_flee_new(update: Update, context: ContextTypes.DEFAULT_T
                 caption=f"🎲 *Ты бросаешь кубики...*\n\nПервый кубик: *{dice1}*",
                 parse_mode=constants.ParseMode.MARKDOWN
             )
-            logger.info("🔴🔴🔴 ПЕРВЫЙ кубик отправлен (фото)")
-    except Exception as e:
-        logger.error(f"🔴🔴🔴 Ошибка отправки ПЕРВОГО кубика: {e}")
+    except:
         msg = await context.bot.send_message(
             chat_id=user_id,
             text=f"🎲 *Ты бросаешь кубики...*\n\nПервый кубик: *{dice1}*",
             parse_mode=constants.ParseMode.MARKDOWN
         )
-        logger.info("🔴🔴🔴 ПЕРВЫЙ кубик отправлен (текст)")
     
-    logger.info("🔴🔴🔴 Жду 2 секунды...")
     await asyncio.sleep(2)
     
-    logger.info("🔴🔴🔴 Удаляю первое сообщение...")
     try:
         await msg.delete()
-        logger.info("🔴🔴🔴 Первое сообщение удалено")
-    except Exception as e:
-        logger.error(f"🔴🔴🔴 Ошибка удаления: {e}")
+    except:
+        pass
     
     # 🎲 ВТОРОЙ КУБИК
-    logger.info("🔴🔴🔴 Отправляю ВТОРОЙ кубик...")
     try:
         with open("/root/bot/images/dice_1.jpg", "rb") as photo:
             msg = await context.bot.send_photo(
@@ -1223,46 +1303,34 @@ async def handle_tunnel_flee_new(update: Update, context: ContextTypes.DEFAULT_T
                 caption=f"🎲 *Ты бросаешь кубики...*\n\n{dice1} + *{dice2}* = *{total}*",
                 parse_mode=constants.ParseMode.MARKDOWN
             )
-            logger.info("🔴🔴🔴 ВТОРОЙ кубик отправлен (фото)")
-    except Exception as e:
-        logger.error(f"🔴🔴🔴 Ошибка отправки ВТОРОГО кубика: {e}")
+    except:
         msg = await context.bot.send_message(
             chat_id=user_id,
             text=f"🎲 *Ты бросаешь кубики...*\n\n{dice1} + *{dice2}* = *{total}*",
             parse_mode=constants.ParseMode.MARKDOWN
         )
-        logger.info("🔴🔴🔴 ВТОРОЙ кубик отправлен (текст)")
     
-    logger.info("🔴🔴🔴 Жду 2 секунды...")
     await asyncio.sleep(2)
     
-    logger.info("🔴🔴🔴 Удаляю второе сообщение...")
     try:
         await msg.delete()
-        logger.info("🔴🔴🔴 Второе сообщение удалено")
-    except Exception as e:
-        logger.error(f"🔴🔴🔴 Ошибка удаления: {e}")
-    
-    # Проверяем результат
-    logger.info(f"🔴🔴🔴 Проверка результата: total={total}, >7? {total > 7}")
+    except:
+        pass
     
     if total > 7:
-        logger.info("🔴🔴🔴 ПОБЕГ УДАЛСЯ! Отправляю dice_win.jpg")
         run_data = get_tunnel_run(user_id)
         crumbs = run_data["crumbs_collected"]
         xp = run_data["xp_collected"]
-        logger.info(f"🔴🔴🔴 crumbs={crumbs}, xp={xp}")
         
         with sqlite3.connect(DB_FILE) as conn:
             c = conn.cursor()
             c.execute('DELETE FROM tunnel_run WHERE user_id = ?', (user_id,))
             conn.commit()
-        logger.info("🔴🔴🔴 Забег удалён из БД")
         
         add_crumbs(user_id, crumbs)
         add_xp(user_id, xp, context)
         add_tunnel_crumbs(user_id, crumbs)
-        logger.info("🔴🔴🔴 Крошки и опыт добавлены")
+        delete_battle_from_db(user_id)
         
         text = f"""🏃 *Побег удался!*
 
@@ -1287,9 +1355,7 @@ _Отличная работа, искатель приключений!_"""
                     parse_mode=constants.ParseMode.MARKDOWN,
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
-            logger.info("🔴🔴🔴 dice_win.jpg отправлен")
-        except Exception as e:
-            logger.error(f"🔴🔴🔴 Ошибка отправки dice_win.jpg: {e}")
+        except:
             await context.bot.send_message(
                 chat_id=user_id,
                 text=text,
@@ -1297,7 +1363,6 @@ _Отличная работа, искатель приключений!_"""
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
     else:
-        logger.info("🔴🔴🔴 ПОБЕГ ПРОВАЛЕН! Отправляю dice_lose.jpg")
         text = f"""😱 *Побег провален!*
 
 🎲 {dice1} + {dice2} = *{total}* ≤ 7
@@ -1317,9 +1382,7 @@ _Ты спотыкаешься! Монстр настигает тебя!_
                     parse_mode=constants.ParseMode.MARKDOWN,
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
-            logger.info("🔴🔴🔴 dice_lose.jpg отправлен")
-        except Exception as e:
-            logger.error(f"🔴🔴🔴 Ошибка отправки dice_lose.jpg: {e}")
+        except:
             await context.bot.send_message(
                 chat_id=user_id,
                 text=text,
@@ -1328,7 +1391,6 @@ _Ты спотыкаешься! Монстр настигает тебя!_
             )
     
     await query.answer()
-    logger.info("🔴🔴🔴 ========================================")
 
 
 async def handle_tunnel_break_free(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1347,8 +1409,20 @@ async def handle_tunnel_continue_battle(update: Update, context: ContextTypes.DE
     player_state = context.user_data.get("tunnel_player_state", {})
     
     if not battle_state:
-        await safe_edit_or_send(query, user_id, "❌ Бой не найден!", [], context)
-        return
+        # 🔄 Пробуем восстановить из БД
+        saved = load_battle_from_db(user_id)
+        if saved:
+            context.user_data["tunnel_battle"] = saved["battle_state"]
+            context.user_data["tunnel_monster_state"] = saved["monster_state"]
+            context.user_data["tunnel_player_state"] = saved["player_state"]
+            context.user_data["tunnel_player_defense"] = saved["player_defense"]
+            battle_state = saved["battle_state"]
+            monster_state = saved["monster_state"]
+            player_state = saved["player_state"]
+            await query.answer("⚠️ Бой восстановлен из сохранения!", show_alert=True)
+        else:
+            await safe_edit_or_send(query, user_id, "❌ Бой не найден!", [], context)
+            return
     
     monster = get_monster(battle_state["monster_id"])
     await show_defense_selection(update, context, user_id, monster, battle_state, monster_state, player_state)

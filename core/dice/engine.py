@@ -648,25 +648,22 @@ class DiceEngine:
         return result
     
     def roll_craft(self) -> CraftResult:
-        """Крафт: 3d6 drop lowest (оставляем 2 лучших)"""
-        rolls = self._roll_multiple(3, 6)
-        sorted_rolls = sorted(rolls, reverse=True)
-        kept = sorted_rolls[:2]
-        dropped = sorted_rolls[2]
-        total = sum(kept)
+        """Крафт: 2d6 (два кубика)"""
+        rolls = self._roll_multiple(2, 6)
+        total = sum(rolls)
         
         if total >= 11:
-            quality = "🌟 ЛЕГЕНДАРНОЕ"
+            quality = "🌟 Легендарное"
         elif total >= 9:
-            quality = "🔥 ОТЛИЧНОЕ"
+            quality = "🔥 Отличное"
         elif total >= 7:
-            quality = "✅ ХОРОШЕЕ"
+            quality = "✅ Хорошее"
         elif total >= 5:
-            quality = "⚠️ ОБЫЧНОЕ"
+            quality = "⚠️ Обычное"
         else:
-            quality = "💀 БРАК"
+            quality = "💀 Брак"
         
-        return CraftResult(rolls=rolls, kept=kept, dropped=dropped, total=total, quality=quality)
+        return CraftResult(rolls=rolls, kept=rolls, dropped=0, total=total, quality=quality)
     
     def roll_versus(self, first_bonus: int = 0, second_bonus: int = 0) -> VersusResult:
         """Встречная проверка (PvP): оба бросают d20 + бонусы"""

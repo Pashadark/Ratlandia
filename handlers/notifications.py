@@ -26,10 +26,22 @@ async def send_level_up_message(context, user_id: int, new_level: int, old_level
         if not bot:
             return
         
+        # Получаем реальное количество очков из базы
+        import sqlite3
+        stat_points = 3  # по умолчанию
+        try:
+            with sqlite3.connect("/root/bot/ratings.db") as conn:
+                cur = conn.execute('SELECT stat_points FROM user_stats WHERE user_id = ?', (user_id,))
+                row = cur.fetchone()
+                if row:
+                    stat_points = row[0]
+        except:
+            pass
+        
         text = (
             f"🎉 *Уровень повышен!*\n\n"
             f"⭐ Ты достиг *{new_level} уровня*!\n"
-            f"🎯 Получено *1* очко характеристик!\n"
+            f"🎯 Получено *{stat_points}* очка характеристик!\n"
             f"❤️ Максимальное здоровье +10!\n\n"
             f"_Продолжай в том же духе!_"
         )

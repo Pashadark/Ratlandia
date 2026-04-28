@@ -1,5 +1,7 @@
 """Предметы для Ратляндии — 350+ предметов с ресурсами и рецептами"""
 from handlers.crafting import get_player_resources
+# ========== УРОН ОРУЖИЯ ==========
+WEAPON_DAMAGE = {}
 # ========== РЕСУРСЫ ==========
 RESOURCES = {
     # 🔩 МЕТАЛЛЫ
@@ -1193,8 +1195,870 @@ CONSUMABLES["poison_cheese"]["craft_materials"] = {"cheese_crust": 2, "rat_poiso
 CONSUMABLES["smoke_bomb"]["craftable"] = True
 CONSUMABLES["smoke_bomb"]["craft_materials"] = {"wall_soot": 3, "cheese_crust": 1, "empty_vial": 1}
 
+# ========== НОВОЕ ОРУЖИЕ (ТУННЕЛИ) ==========
+NEW_WEAPONS = {
+    # ===== МЕЧИ =====
+    "rusty_sword": {
+        "name": "Ржавый меч", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к силе. Базовое оружие.",
+        "effect": {"strength": 2},
+        "icon": "🗡️", "price": 300,
+        "lore": "Покрытый ржавчиной клинок, найденный в старом сундуке. Ещё послужит.",
+        "craftable": True,
+        "craft_materials": {"iron_gear": 3, "copper_scrap": 2, "stone_shard": 2}
+    },
+    "iron_blade": {
+        "name": "Железный клинок", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+3 к силе.",
+        "effect": {"strength": 3},
+        "icon": "⚔️", "price": 600,
+        "lore": "Простой, но надёжный меч. Верный спутник начинающего искателя приключений.",
+        "craftable": True,
+        "craft_materials": {"iron_gear": 5, "bronze_alloy": 2, "leather_scrap": 1}
+    },
+    "steel_sword": {
+        "name": "Стальной меч", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "rare",
+        "desc": "+5 к силе. +1 к минимальному урону.",
+        "effect": {"strength": 5, "min_damage": 1},
+        "icon": "🗡️", "price": 3000,
+        "lore": "Клинок из закалённой стали. Хороший баланс между весом и остротой.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 4, "bronze_alloy": 3, "iron_gear": 2}
+    },
+    "mithril_sword": {
+        "name": "Мифриловый меч", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "epic",
+        "desc": "+8 к силе. Светится в темноте.",
+        "effect": {"strength": 8},
+        "icon": "✨", "price": 15000,
+        "lore": "Лёгкий клинок из мифрила. Сияет голубоватым светом в присутствии опасности.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 3, "silver_ingot": 2, "fairy_dust": 1}
+    },
+    "shadow_blade_sword": {
+        "name": "Клинок Теней", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "epic",
+        "desc": "+6 к ловкости. +10% шанс критического удара.",
+        "effect": {"agility": 6, "crit_chance": 10},
+        "icon": "🌑", "price": 18000,
+        "lore": "Клинок, выкованный в абсолютной темноте. Не отражает свет.",
+        "craftable": True,
+        "craft_materials": {"obsidian_scale": 4, "steel_shard": 3, "bat_fang": 2}
+    },
+    "cheese_blade": {
+        "name": "Сырной клинок", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "rare",
+        "desc": "+4 к силе. +5% опыта за бой.",
+        "effect": {"strength": 4, "xp_boost": 5},
+        "icon": "🧀", "price": 4000,
+        "lore": "Затвердевший пармезан, заточенный до бритвенной остроты. Пахнет божественно.",
+        "craftable": True,
+        "craft_materials": {"cheese_crust": 8, "iron_gear": 2, "honey_drop": 1}
+    },
+    "rat_catcher_sword": {
+        "name": "Меч Крысолова", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "legendary",
+        "desc": "+10 к силе. +25% урона против крыс и грызунов.",
+        "effect": {"strength": 10, "rat_damage_bonus": 25},
+        "icon": "⚔️🐀", "price": 40000,
+        "lore": "Прославленный меч легендарного Крысолова. Поёт, когда рядом враг.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 5, "rat_king_eye": 2, "obsidian_scale": 3}
+    },
+    "king_blade": {
+        "name": "Клинок Короля", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "legendary",
+        "desc": "+12 к силе. +15% к максимальному здоровью.",
+        "effect": {"strength": 12, "max_health_percent": 15},
+        "icon": "👑", "price": 50000,
+        "lore": "Меч, достойный монарха. Его владелец чувствует прилив королевской мощи.",
+        "craftable": True,
+        "craft_materials": {"adamantite": 2, "mithril_nugget": 4, "star_silk": 1}
+    },
+    "divine_sword": {
+        "name": "Божественный меч", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "mythic",
+        "desc": "+18 к силе. Святой урон — игнорирует защиту нежити.",
+        "effect": {"strength": 18, "holy_damage": True},
+        "icon": "⚡", "price": 150000,
+        "lore": "Клинок, благословлённый самим Мышиным Богом. Разит нежить без пощады.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 1, "mithril_nugget": 6, "phoenix_ember": 2}
+    },
+    "first_hero_sword": {
+        "name": "Меч Первого героя", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "mythic",
+        "desc": "+22 к силе. +20% ко всем характеристикам.",
+        "effect": {"strength": 22, "all_stats_percent": 20},
+        "icon": "🏆", "price": 200000,
+        "lore": "Оружие самого первого искателя приключений. Пропитано духом первооткрывателя.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 2, "adamantite": 3, "labyrinth_heart": 1}
+    },
+
+    # ===== КИНЖАЛЫ =====
+    "bone_knife": {
+        "name": "Костяной нож", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+1 к ловкости. +5% шанс двойного удара.",
+        "effect": {"agility": 1, "double_hit_chance": 5},
+        "icon": "🦴", "price": 200,
+        "lore": "Грубо обтёсанная кость. Лучше, чем ничего.",
+        "craftable": True,
+        "craft_materials": {"mouse_bone": 5, "rat_incisor": 2, "stone_shard": 1}
+    },
+    "jagged_dagger": {
+        "name": "Зазубренный кинжал", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к ловкости. Кровотечение — 2 урона на 2 хода (шанс 15%).",
+        "effect": {"agility": 2, "bleed_chance": 15},
+        "icon": "🗡️", "price": 500,
+        "lore": "Лезвие с зубцами. Оставляет рваные раны.",
+        "craftable": True,
+        "craft_materials": {"iron_gear": 3, "rat_incisor": 4, "copper_scrap": 2}
+    },
+    "poison_stiletto": {
+        "name": "Отравленный стилет", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "rare",
+        "desc": "+4 к ловкости. Яд — 3 урона/ход на 3 хода (шанс 20%).",
+        "effect": {"agility": 4, "poison_chance": 20},
+        "icon": "🧪", "price": 5000,
+        "lore": "Тонкое лезвие, смазанное ядом. Один укол — и враг обречён.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 3, "rat_poison": 3, "empty_vial": 2}
+    },
+    "shadow_dagger": {
+        "name": "Теневой клинок", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "epic",
+        "desc": "+7 к ловкости. +15% шанс двойного удара.",
+        "effect": {"agility": 7, "double_hit_chance": 15},
+        "icon": "🌑", "price": 16000,
+        "lore": "Кинжал, скрытый от глаз. Бьёт дважды, прежде чем жертва поймёт.",
+        "craftable": True,
+        "craft_materials": {"obsidian_scale": 3, "bat_membrane": 2, "spider_silk": 2}
+    },
+    "assassin_dagger": {
+        "name": "Кинжал ассасина", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "epic",
+        "desc": "+8 к ловкости. +20% урона при атаке со спины.",
+        "effect": {"agility": 8, "backstab_bonus": 20},
+        "icon": "🔪", "price": 20000,
+        "lore": "Изогнутый клинок профессионального убийцы. Смертелен в умелых лапах.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 5, "bat_fang": 3, "rat_poison": 2}
+    },
+    "blood_dagger": {
+        "name": "Кровавый кинжал", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "legendary",
+        "desc": "+10 к ловкости. Вампиризм — восстанавливает 30% урона.",
+        "effect": {"agility": 10, "vampirism": 30},
+        "icon": "🩸", "price": 45000,
+        "lore": "Красное лезвие, которое пьёт кровь врага, отдавая силу владельцу.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 4, "bat_fang": 5, "rat_king_eye": 2}
+    },
+    "death_whisper": {
+        "name": "Шёпот смерти", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "legendary",
+        "desc": "+12 к ловкости. Бесшумное убийство — жертва не кричит.",
+        "effect": {"agility": 12, "silent_kill": True},
+        "icon": "💀", "price": 55000,
+        "lore": "Кинжал, который убивает в полной тишине. Никто не услышит предсмертный писк.",
+        "craftable": True,
+        "craft_materials": {"obsidian_scale": 5, "bat_membrane": 4, "void_essence": 1}
+    },
+    "demon_fang": {
+        "name": "Клык демона", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "mythic",
+        "desc": "+16 к ловкости. +25% шанс двойного удара. Вампиризм 50%.",
+        "effect": {"agility": 16, "double_hit_chance": 25, "vampirism": 50},
+        "icon": "👿", "price": 160000,
+        "lore": "Кинжал, вырванный из пасти демона. Живёт своей жизнью и жаждет крови.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 1, "obsidian_scale": 6, "first_rat_skull": 1}
+    },
+    "soul_reaper": {
+        "name": "Душегуб", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "mythic",
+        "desc": "+18 к ловкости. Убийство даёт +50% опыта.",
+        "effect": {"agility": 18, "kill_xp_bonus": 50},
+        "icon": "⚰️", "price": 180000,
+        "lore": "Клинок, пожирающий души. Каждая смерть делает владельца сильнее.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 2, "labyrinth_heart": 1, "rat_god_tooth": 1}
+    },
+    "last_breath": {
+        "name": "Последний вздох", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "mythic",
+        "desc": "+20 к ловкости. При HP < 20%: +50% урона и вампиризм 100%.",
+        "effect": {"agility": 20, "desperation_bonus": 50, "desperation_vampirism": 100},
+        "icon": "💨", "price": 200000,
+        "lore": "На грани смерти этот кинжал раскрывает истинную мощь. Последний шанс или верная смерть.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 3, "labyrinth_heart": 2, "void_essence": 2}
+    },
+
+    # ===== РАПИРА (единственная) =====
+    "rapier": {
+        "name": "Рапира", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "mythic",
+        "desc": "+25 к силе. Огромный урон! Но 8% шанс пораниться при атаке (3 урона себе).",
+        "effect": {"strength": 25, "self_damage_chance": 8, "self_damage": 3},
+        "icon": "⚔️✨", "price": 250000,
+        "lore": "Элегантная и смертоносная рапира из звёздного металла. Настолько острая, что иногда ранит владельца.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 5, "adamantite": 4, "labyrinth_heart": 2}
+    },
+}
+
+# ========== КАМНИ ДЛЯ ИНКРУСТАЦИИ ОРУЖИЯ ==========
+ENCHANT_GEMS = {
+    "gem_emerald": {
+        "name": "Изумруд", "type": "gem", "rarity": "rare",
+        "desc": "Ядовитый камень. При атаке: отравляет врага (3 урона/ход, 3 хода).",
+        "effect": {"poison": 3, "poison_duration": 3},
+        "icon": "🟢", "price": 3000,
+        "lore": "Зелёный камень, пахнущий миндалём. Смертельно опасен в умелых лапах."
+    },
+    "gem_ruby": {
+        "name": "Рубин", "type": "gem", "rarity": "rare",
+        "desc": "Огненный камень. При атаке: +5 к урону (шанс 15%).",
+        "effect": {"fire_damage": 5},
+        "icon": "🔴", "price": 3500,
+        "lore": "Кроваво-красный камень, тёплый на ощупь. Хранит в себе жар подземного пламени."
+    },
+    "gem_sapphire": {
+        "name": "Сапфир", "type": "gem", "rarity": "epic",
+        "desc": "Ледяной камень. При атаке: замораживает врага на 1 ход (шанс 10%).",
+        "effect": {"freeze": 1},
+        "icon": "🔵", "price": 8000,
+        "lore": "Синий как глубина океана. Его холод способен остановить даже самого быстрого врага."
+    },
+    "gem_topaz": {
+        "name": "Топаз", "type": "gem", "rarity": "epic",
+        "desc": "Камень стана. При атаке: оглушает врага на 1 ход (шанс 8%).",
+        "effect": {"stun": 1},
+        "icon": "🟡", "price": 9000,
+        "lore": "Золотистый камень, искрящийся статическим электричеством. Парализует прикосновением."
+    },
+    "gem_amethyst": {
+        "name": "Аметист", "type": "gem", "rarity": "epic",
+        "desc": "Магический камень. При атаке: игнорирует защиту врага (шанс 12%).",
+        "effect": {"ignore_defense": True},
+        "icon": "🟣", "price": 10000,
+        "lore": "Фиолетовый кристалл, пульсирующий магической энергией. Пробивает любую броню."
+    },
+    "gem_diamond": {
+        "name": "Алмаз", "type": "gem", "rarity": "epic",
+        "desc": "Камень кровотечения. При атаке: 2 урона/ход на 4 хода (шанс 18%).",
+        "effect": {"bleed": 2, "bleed_duration": 4},
+        "icon": "⚪", "price": 7500,
+        "lore": "Чистейший алмаз, острый как бритва. Оставляет долго незаживающие раны."
+    },
+    "gem_onyx": {
+        "name": "Оникс", "type": "gem", "rarity": "legendary",
+        "desc": "Камень вампиризма. При атаке: восстанавливает 50% урона (шанс 15%).",
+        "effect": {"vampirism": 50},
+        "icon": "🟤", "price": 25000,
+        "lore": "Чёрный камень, впитывающий жизненную силу. Отдаёт её владельцу."
+    },
+    "gem_citrine": {
+        "name": "Цитрин", "type": "gem", "rarity": "legendary",
+        "desc": "Камень скорости. При атаке: двойной удар (шанс 5%).",
+        "effect": {"double_hit": True},
+        "icon": "🟠", "price": 30000,
+        "lore": "Оранжевый камень, ускоряющий движения. В бою каждая секунда на счету."
+    },
+    "gem_obsidian": {
+        "name": "Обсидиан", "type": "gem", "rarity": "legendary",
+        "desc": "Камень проклятия. При атаке: снижает урон врага на 2 на 2 хода (шанс 10%).",
+        "effect": {"weaken": 2, "weaken_duration": 2},
+        "icon": "⚫", "price": 28000,
+        "lore": "Вулканическое стекло, пропитанное древним проклятием. Ослабляет того, кого коснётся."
+    },
+    "gem_moonstone": {
+        "name": "Лунный камень", "type": "gem", "rarity": "mythic",
+        "desc": "Камень хаоса. При атаке: случайный эффект из всех возможных (шанс 25%).",
+        "effect": {"random_effect": True},
+        "icon": "🔮", "price": 80000,
+        "lore": "Переливающийся камень, рождённый из лунного света. Никто не знает, что он сотворит в следующее мгновение."
+    },
+}
+
+# ========== СВИТКИ ЗАТОЧКИ ==========
+ENCHANT_SCROLLS = {
+    "enchant_scroll_weapon": {
+        "name": "Свиток заточки оружия", "type": "scroll", "rarity": "rare",
+        "desc": "Заточить оружие: +1 уровень. При неудаче с +4 вещь может сломаться.",
+        "effect": "enchant_weapon",
+        "icon": "📜⚔️", "price": 5000,
+        "lore": "Древний пергамент с рунами усиления. Кузнецы молятся перед его использованием."
+    },
+    "enchant_scroll_armor": {
+        "name": "Свиток заточки брони", "type": "scroll", "rarity": "rare",
+        "desc": "Заточить броню: +1 уровень. При неудаче с +4 вещь может сломаться.",
+        "effect": "enchant_armor",
+        "icon": "📜🛡️", "price": 4000,
+        "lore": "Пергамент, пропитанный защитной магией. Делает броню прочнее."
+    },
+    "blessed_scroll_weapon": {
+        "name": "Благословенный свиток оружия", "type": "scroll", "rarity": "epic",
+        "desc": "Заточить оружие: +1 уровень. При неудаче сброс на 0, но вещь цела.",
+        "effect": "enchant_weapon_blessed",
+        "icon": "📜✨", "price": 25000,
+        "lore": "Свиток, освящённый жрецами Мышиного Бога. Даже при неудаче оружие остаётся целым."
+    },
+    "blessed_scroll_armor": {
+        "name": "Благословенный свиток брони", "type": "scroll", "rarity": "epic",
+        "desc": "Заточить броню: +1 уровень. При неудаче сброс на 0, но вещь цела.",
+        "effect": "enchant_armor_blessed",
+        "icon": "📜✨", "price": 20000,
+        "lore": "Свиток, окроплённый святой водой. Броня не ломается, даже если заточка не удалась."
+    },
+    "crystal_scroll_weapon": {
+        "name": "Кристальный свиток оружия", "type": "scroll", "rarity": "legendary",
+        "desc": "Заточить оружие: +1 уровень. Повышенный шанс успеха (x1.5).",
+        "effect": "enchant_weapon_crystal",
+        "icon": "📜💎", "price": 50000,
+        "lore": "Свиток, инкрустированный кристальной пылью. Шанс успешной заточки значительно выше."
+    },
+    "crystal_scroll_armor": {
+        "name": "Кристальный свиток брони", "type": "scroll", "rarity": "legendary",
+        "desc": "Заточить броню: +1 уровень. Повышенный шанс успеха (x1.5).",
+        "effect": "enchant_armor_crystal",
+        "icon": "📜💎", "price": 45000,
+        "lore": "Свиток, сверкающий как алмаз. Даже опытные кузнецы ценят его."
+    },
+}
+
+# ========== НОВЫЕ РЕЦЕПТЫ ДЛЯ ОРУЖИЯ ==========
+NEW_RECIPES = {
+    "recipe_rusty_sword": {
+        "name": "Рецепт: Ржавый меч", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Ржавого меча",
+        "icon": "📜", "price": 300,
+        "result_item": "rusty_sword",
+        "materials": {"iron_gear": 3, "copper_scrap": 2, "stone_shard": 2},
+        "lore": "Базовый рецепт для начинающих кузнецов."
+    },
+    "recipe_iron_blade": {
+        "name": "Рецепт: Железный клинок", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Железного клинка",
+        "icon": "📜", "price": 500,
+        "result_item": "iron_blade",
+        "materials": {"iron_gear": 5, "bronze_alloy": 2, "leather_scrap": 1},
+        "lore": "Проверенный рецепт из поколения в поколение."
+    },
+    "recipe_steel_sword": {
+        "name": "Рецепт: Стальной меч", "type": "recipe", "rarity": "rare",
+        "desc": "Открывает крафт Стального меча",
+        "icon": "📜", "price": 2000,
+        "result_item": "steel_sword",
+        "materials": {"steel_shard": 4, "bronze_alloy": 3, "iron_gear": 2},
+        "lore": "Требует умелых лап и хорошей печи."
+    },
+    "recipe_rapier": {
+        "name": "Рецепт: Рапира", "type": "recipe", "rarity": "mythic",
+        "desc": "Открывает крафт Рапиры",
+        "icon": "📜", "price": 100000,
+        "result_item": "rapier",
+        "materials": {"spark_creation": 5, "adamantite": 4, "labyrinth_heart": 2},
+        "lore": "Легендарный рецепт, известный лишь избранным мастерам."
+    },
+    "recipe_poison_stiletto": {
+        "name": "Рецепт: Отравленный стилет", "type": "recipe", "rarity": "rare",
+        "desc": "Открывает крафт Отравленного стилета",
+        "icon": "📜", "price": 3000,
+        "result_item": "poison_stiletto",
+        "materials": {"steel_shard": 3, "rat_poison": 3, "empty_vial": 2},
+        "lore": "Оружие для тех, кто предпочитает тихую смерть."
+    },
+    "recipe_blood_dagger": {
+        "name": "Рецепт: Кровавый кинжал", "type": "recipe", "rarity": "legendary",
+        "desc": "Открывает крафт Кровавого кинжала",
+        "icon": "📜", "price": 25000,
+        "result_item": "blood_dagger",
+        "materials": {"mithril_nugget": 4, "bat_fang": 5, "rat_king_eye": 2},
+        "lore": "Кровь врагов станет твоей силой."
+    },
+    "recipe_rat_catcher_sword": {
+        "name": "Рецепт: Меч Крысолова", "type": "recipe", "rarity": "legendary",
+        "desc": "Открывает крафт Меча Крысолова",
+        "icon": "📜", "price": 30000,
+        "result_item": "rat_catcher_sword",
+        "materials": {"mithril_nugget": 5, "rat_king_eye": 2, "obsidian_scale": 3},
+        "lore": "Создан для истребления грызунов всех мастей."
+    },
+    "recipe_first_hero_sword": {
+        "name": "Рецепт: Меч Первого героя", "type": "recipe", "rarity": "mythic",
+        "desc": "Открывает крафт Меча Первого героя",
+        "icon": "📜", "price": 100000,
+        "result_item": "first_hero_sword",
+        "materials": {"spark_creation": 2, "adamantite": 3, "labyrinth_heart": 1},
+        "lore": "Рецепт, написанный рукой самого Первого героя."
+    },
+}
+# ========== БРОНЯ ПО КЛАССАМ ==========
+CLASS_ARMORS = {
+    # ===== БРОНЯ ТАНКА (высокая защита, +HP, -ловкость) =====
+    "iron_plate": {
+        "name": "Железный нагрудник", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "common",
+        "desc": "+3 к силе. +25 HP. -1 к ловкости. Тяжёлая броня.",
+        "effect": {"strength": 3, "max_health": 25, "agility": -1},
+        "icon": "🛡️", "price": 800,
+        "lore": "Толстая железная пластина. Неповоротливо, но надёжно.",
+        "craftable": True,
+        "craft_materials": {"iron_gear": 8, "bronze_alloy": 3, "leather_scrap": 2}
+    },
+    "steel_cuirass": {
+        "name": "Стальная кираса", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "rare",
+        "desc": "+5 к силе. +40 HP. -2 к ловкости.",
+        "effect": {"strength": 5, "max_health": 40, "agility": -2},
+        "icon": "🛡️", "price": 5000,
+        "lore": "Цельный стальной панцирь. Выдерживает прямой удар меча.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 6, "iron_gear": 4, "bronze_alloy": 3}
+    },
+    "mithril_plate": {
+        "name": "Мифриловая броня", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "epic",
+        "desc": "+8 к силе. +60 HP. Нет штрафа к ловкости.",
+        "effect": {"strength": 8, "max_health": 60},
+        "icon": "✨🛡️", "price": 20000,
+        "lore": "Лёгкая как перо, прочная как сталь. Мечта любого танка.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 5, "steel_shard": 4, "fairy_dust": 2}
+    },
+    "titan_armor": {
+        "name": "Броня титана", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "legendary",
+        "desc": "+12 к силе. +100 HP. Входящий урон -3.",
+        "effect": {"strength": 12, "max_health": 100, "damage_reduction": 3},
+        "icon": "🏰", "price": 60000,
+        "lore": "Броня, выкованная из сердца горы. Почти непробиваема.",
+        "craftable": True,
+        "craft_materials": {"adamantite": 3, "mithril_nugget": 5, "magnetic_stone": 2}
+    },
+    "aegis_divine": {
+        "name": "Эгида божественная", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "mythic",
+        "desc": "+20 к силе. +200 HP. Входящий урон -5. Иммунитет к оглушению.",
+        "effect": {"strength": 20, "max_health": 200, "damage_reduction": 5, "stun_immune": True},
+        "icon": "⚡🛡️", "price": 200000,
+        "lore": "Щит самого Бога-Защитника. Ничто не пробьёт эту защиту.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 3, "adamantite": 5, "labyrinth_heart": 2}
+    },
+
+    # ===== БРОНЯ АТАКУЮЩЕГО (сила, урон, средняя защита) =====
+    "leather_armor_reinforced": {
+        "name": "Усиленная кожаная броня", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к силе. +1 к минимальному урону. +10 HP.",
+        "effect": {"strength": 2, "min_damage": 1, "max_health": 10},
+        "icon": "🦺", "price": 600,
+        "lore": "Кожа, усиленная железными вставками. Для тех, кто предпочитает атаку.",
+        "craftable": True,
+        "craft_materials": {"rat_pelt": 6, "iron_gear": 3, "leather_scrap": 3}
+    },
+    "berserker_harness": {
+        "name": "Упряжь берсерка", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "rare",
+        "desc": "+4 к силе. +2 к урону. -5 HP.",
+        "effect": {"strength": 4, "damage": 2, "max_health": -5},
+        "icon": "😤", "price": 4000,
+        "lore": "Минимум защиты, максимум ярости. Для тех, кто не боится умереть.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 4, "rat_pelt": 5, "bronze_alloy": 2}
+    },
+    "war_chainmail": {
+        "name": "Боевая кольчуга", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "epic",
+        "desc": "+7 к силе. +3 к урону. +25 HP.",
+        "effect": {"strength": 7, "damage": 3, "max_health": 25},
+        "icon": "⛓️", "price": 18000,
+        "lore": "Кольчуга, закалённая в драконьем пламени. Для настоящих воинов.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 6, "mithril_nugget": 2, "iron_gear": 4}
+    },
+    "dragon_leather": {
+        "name": "Драконья шкура", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "legendary",
+        "desc": "+10 к силе. +5 к урону. +40 HP. +10% шанс крита.",
+        "effect": {"strength": 10, "damage": 5, "max_health": 40, "crit_chance": 10},
+        "icon": "🐉", "price": 65000,
+        "lore": "Шкура легендарного ящера. Пропитана огнём и яростью.",
+        "craftable": True,
+        "craft_materials": {"obsidian_scale": 5, "steel_shard": 5, "phoenix_ember": 2}
+    },
+    "ragnarok_armor": {
+        "name": "Броня Рагнарёка", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "mythic",
+        "desc": "+18 к силе. +8 к урону. +60 HP. +20% шанс крита.",
+        "effect": {"strength": 18, "damage": 8, "max_health": 60, "crit_chance": 20},
+        "icon": "🌋", "price": 220000,
+        "lore": "Броня конца времён. Говорят, её носил сам бог войны.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 4, "adamantite": 4, "phoenix_ember": 3}
+    },
+
+    # ===== БРОНЯ МАГА (интеллект, реген маны, сопротивление магии) =====
+    "apprentice_robe": {
+        "name": "Роба ученика", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к интеллекту. +5% к магическому урону.",
+        "effect": {"intelligence": 2, "magic_damage": 5},
+        "icon": "👘", "price": 500,
+        "lore": "Простая тканевая роба. Пахнет старыми книгами и свечным воском.",
+        "craftable": True,
+        "craft_materials": {"linen_scrap": 5, "wool_clump": 3, "candle_stub": 2}
+    },
+    "sorcerer_robe": {
+        "name": "Мантия чародея", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "rare",
+        "desc": "+4 к интеллекту. +10% к магическому урону. +1 реген маны.",
+        "effect": {"intelligence": 4, "magic_damage": 10, "mana_regen": 1},
+        "icon": "🧙", "price": 4500,
+        "lore": "Мантия, расшитая магическими рунами. Искрит при ходьбе.",
+        "craftable": True,
+        "craft_materials": {"spider_silk": 4, "fairy_dust": 2, "cloudy_crystal": 2}
+    },
+    "archmage_robe": {
+        "name": "Одеяние архимага", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "epic",
+        "desc": "+7 к интеллекту. +15% к магическому урону. +2 реген маны. +10 HP.",
+        "effect": {"intelligence": 7, "magic_damage": 15, "mana_regen": 2, "max_health": 10},
+        "icon": "🔮", "price": 22000,
+        "lore": "Одеяние, пропитанное чистой магией. Владелец чувствует потоки силы.",
+        "craftable": True,
+        "craft_materials": {"moon_silk": 3, "fairy_dust": 4, "mage_blood": 1}
+    },
+    "void_weave_robe": {
+        "name": "Мантия Пустоты", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "legendary",
+        "desc": "+12 к интеллекту. +25% к магическому урону. +3 реген маны. Иммунитет к сайленсу.",
+        "effect": {"intelligence": 12, "magic_damage": 25, "mana_regen": 3, "silence_immune": True},
+        "icon": "🌌", "price": 70000,
+        "lore": "Соткана из самой ткани мироздания. Между нитями видна бесконечность.",
+        "craftable": True,
+        "craft_materials": {"void_essence": 2, "star_silk": 3, "ancient_scrap": 2}
+    },
+    "omniscient_shroud": {
+        "name": "Покров Всезнания", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "mythic",
+        "desc": "+20 к интеллекту. +40% к магическому урону. +5 реген маны. Все заклинания усилены.",
+        "effect": {"intelligence": 20, "magic_damage": 40, "mana_regen": 5, "all_spells_boost": True},
+        "icon": "🌟", "price": 250000,
+        "lore": "Одеяние, дарующее знание всех тайн. Владелец видит прошлое и будущее.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 5, "labyrinth_heart": 3, "void_essence": 3}
+    },
+
+    # ===== БРОНЯ РАЗБОЙНИКА (ловкость, уклонение, скрытность) =====
+    "thief_vest": {
+        "name": "Жилет вора", "type": "equipment", "slot": "armor",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к ловкости. +5% к уклонению. +5 HP.",
+        "effect": {"agility": 2, "dodge": 5, "max_health": 5},
+        "icon": "🕵️", "price": 500,
+        "lore": "Лёгкий жилет с множеством карманов для краденого.",
+        "craftable": True,
+        "craft_materials": {"leather_scrap": 5, "linen_scrap": 3, "rat_pelt": 2}
+    },
+    "shadow_leather": {
+        "name": "Теневая кожа", "type": "equipment", "slot": "armor",
+        "role": "rat", "rarity": "rare",
+        "desc": "+4 к ловкости. +10% к уклонению. +10 HP. Бесшумное движение.",
+        "effect": {"agility": 4, "dodge": 10, "max_health": 10, "silent_move": True},
+        "icon": "🌑", "price": 4500,
+        "lore": "Кожаный доспех, выкрашенный в цвет ночи. Шагов не слышно.",
+        "craftable": True,
+        "craft_materials": {"bat_membrane": 3, "spider_silk": 3, "obsidian_scale": 2}
+    },
+    "ninja_gi": {
+        "name": "Одеяние ниндзя", "type": "equipment", "slot": "armor",
+        "role": "rat", "rarity": "epic",
+        "desc": "+7 к ловкости. +15% к уклонению. +15 HP. +10% шанс двойного удара.",
+        "effect": {"agility": 7, "dodge": 15, "max_health": 15, "double_hit_chance": 10},
+        "icon": "🥷", "price": 20000,
+        "lore": "Чёрное одеяние, позволяющее двигаться быстрее ветра.",
+        "craftable": True,
+        "craft_materials": {"spider_silk": 5, "bat_membrane": 4, "snake_skin": 3}
+    },
+    "phantom_mantle": {
+        "name": "Плащ фантома", "type": "equipment", "slot": "armor",
+        "role": "rat", "rarity": "legendary",
+        "desc": "+12 к ловкости. +20% к уклонению. +25 HP. Невидимость на 1 ход при HP < 30%.",
+        "effect": {"agility": 12, "dodge": 20, "max_health": 25, "emergency_invis": True},
+        "icon": "👻", "price": 65000,
+        "lore": "Плащ, сотканный из душ умерших воров. Исчезает в момент опасности.",
+        "craftable": True,
+        "craft_materials": {"moon_silk": 4, "bat_membrane": 5, "void_essence": 1}
+    },
+    "nightstalker_garb": {
+        "name": "Одеяние Ночного Охотника", "type": "equipment", "slot": "armor",
+        "role": "rat", "rarity": "mythic",
+        "desc": "+20 к ловкости. +30% к уклонению. +40 HP. Все удары из невидимости — критические.",
+        "effect": {"agility": 20, "dodge": 30, "max_health": 40, "stealth_crit": True},
+        "icon": "🦇", "price": 230000,
+        "lore": "Одеяние легендарного убийцы. Никто не видел его владельца живым.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 4, "void_essence": 3, "star_silk": 3}
+    },
+}
+
+# ========== РЕЦЕПТЫ КЛАССОВОЙ БРОНИ ==========
+CLASS_ARMOR_RECIPES = {
+    "recipe_iron_plate": {
+        "name": "Рецепт: Железный нагрудник", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Железного нагрудника",
+        "icon": "📜", "price": 500,
+        "result_item": "iron_plate",
+        "materials": {"iron_gear": 8, "bronze_alloy": 3, "leather_scrap": 2},
+        "lore": "Рецепт для тех, кто хочет стать непробиваемым."
+    },
+    "recipe_apprentice_robe": {
+        "name": "Рецепт: Роба ученика", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Робы ученика",
+        "icon": "📜", "price": 400,
+        "result_item": "apprentice_robe",
+        "materials": {"linen_scrap": 5, "wool_clump": 3, "candle_stub": 2},
+        "lore": "Первый шаг на пути магического искусства."
+    },
+    "recipe_thief_vest": {
+        "name": "Рецепт: Жилет вора", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Жилета вора",
+        "icon": "📜", "price": 400,
+        "result_item": "thief_vest",
+        "materials": {"leather_scrap": 5, "linen_scrap": 3, "rat_pelt": 2},
+        "lore": "Для тех, кто предпочитает действовать из тени."
+    },
+    "recipe_berserker_harness": {
+        "name": "Рецепт: Упряжь берсерка", "type": "recipe", "rarity": "rare",
+        "desc": "Открывает крафт Упряжи берсерка",
+        "icon": "📜", "price": 2500,
+        "result_item": "berserker_harness",
+        "materials": {"steel_shard": 4, "rat_pelt": 5, "bronze_alloy": 2},
+        "lore": "Для тех, кто не боится боли."
+    },
+    "recipe_sorcerer_robe": {
+        "name": "Рецепт: Мантия чародея", "type": "recipe", "rarity": "rare",
+        "desc": "Открывает крафт Мантии чародея",
+        "icon": "📜", "price": 3000,
+        "result_item": "sorcerer_robe",
+        "materials": {"spider_silk": 4, "fairy_dust": 2, "cloudy_crystal": 2},
+        "lore": "Мантия, усиливающая потоки магии."
+    },
+    "recipe_titan_armor": {
+        "name": "Рецепт: Броня титана", "type": "recipe", "rarity": "legendary",
+        "desc": "Открывает крафт Брони титана",
+        "icon": "📜", "price": 35000,
+        "result_item": "titan_armor",
+        "materials": {"adamantite": 3, "mithril_nugget": 5, "magnetic_stone": 2},
+        "lore": "Броня, достойная величайших героев."
+    },
+    "recipe_nightstalker_garb": {
+        "name": "Рецепт: Одеяние Ночного Охотника", "type": "recipe", "rarity": "mythic",
+        "desc": "Открывает крафт Одеяния Ночного Охотника",
+        "icon": "📜", "price": 100000,
+        "result_item": "nightstalker_garb",
+        "materials": {"spark_creation": 4, "void_essence": 3, "star_silk": 3},
+        "lore": "Легендарный рецепт, известный лишь Гильдии Теней."
+    },
+}
+# ========== ОБНОВЛЕНИЕ ОРУЖИЯ — ДОБАВЛЯЕМ УРОН ==========
+# Мечи — базовый урон + сила
+WEAPON_DAMAGE.update({
+    "rusty_sword": {"min_damage": 2, "max_damage": 5},
+    "iron_blade": {"min_damage": 3, "max_damage": 6},
+    "steel_sword": {"min_damage": 4, "max_damage": 8},
+    "mithril_sword": {"min_damage": 6, "max_damage": 12},
+    "shadow_blade_sword": {"min_damage": 5, "max_damage": 11},
+    "cheese_blade": {"min_damage": 3, "max_damage": 7},
+    "rat_catcher_sword": {"min_damage": 8, "max_damage": 16},
+    "king_blade": {"min_damage": 9, "max_damage": 18},
+    "divine_sword": {"min_damage": 12, "max_damage": 24},
+    "first_hero_sword": {"min_damage": 15, "max_damage": 28},
+    # Кинжалы — меньше урон, но быстрее
+    "bone_knife": {"min_damage": 1, "max_damage": 3},
+    "jagged_dagger": {"min_damage": 2, "max_damage": 4},
+    "poison_stiletto": {"min_damage": 3, "max_damage": 6},
+    "shadow_dagger": {"min_damage": 4, "max_damage": 8},
+    "assassin_dagger": {"min_damage": 5, "max_damage": 9},
+    "blood_dagger": {"min_damage": 6, "max_damage": 12},
+    "death_whisper": {"min_damage": 8, "max_damage": 14},
+    "demon_fang": {"min_damage": 10, "max_damage": 18},
+    "soul_reaper": {"min_damage": 12, "max_damage": 20},
+    "last_breath": {"min_damage": 14, "max_damage": 22},
+    # Рапира — огромный урон
+    "rapier": {"min_damage": 18, "max_damage": 35},
+    # Старое оружие
+    "cheese_sword": {"min_damage": 2, "max_damage": 5},
+    "rat_dagger": {"min_damage": 3, "max_damage": 7},
+    "butcher_knife": {"min_damage": 8, "max_damage": 16},
+    "crossbow": {"min_damage": 5, "max_damage": 10},
+})
+
+# ========== ЛУКИ ДЛЯ ЛУЧНИКА ==========
+NEW_BOWS = {
+    "wooden_bow": {
+        "name": "Деревянный лук", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+2 к ловкости. Дальний бой.",
+        "effect": {"agility": 2},
+        "icon": "🏹", "price": 400,
+        "lore": "Простой лук из ветки вяза. С чего-то надо начинать.",
+        "craftable": True,
+        "craft_materials": {"pigeon_feather": 3, "mouse_bone": 2, "spider_web": 2}
+    },
+    "hunter_bow": {
+        "name": "Лук охотника", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "common",
+        "desc": "+3 к ловкости. +1 к минимальному урону.",
+        "effect": {"agility": 3, "min_damage": 1},
+        "icon": "🏹", "price": 700,
+        "lore": "Надёжный лук для охоты на мелкую дичь.",
+        "craftable": True,
+        "craft_materials": {"pigeon_feather": 5, "rat_pelt": 3, "bronze_alloy": 1}
+    },
+    "composite_bow": {
+        "name": "Композитный лук", "type": "equipment", "slot": "weapon",
+        "role": "all", "rarity": "rare",
+        "desc": "+5 к ловкости. +2 к минимальному урону. +5% к точности.",
+        "effect": {"agility": 5, "min_damage": 2, "accuracy": 5},
+        "icon": "🏹", "price": 4000,
+        "lore": "Лук из рога и сухожилий. Бьёт дальше и точнее.",
+        "craftable": True,
+        "craft_materials": {"bronze_alloy": 4, "leather_scrap": 3, "rat_tail_vertebra": 2}
+    },
+    "elven_bow": {
+        "name": "Эльфийский лук", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "epic",
+        "desc": "+8 к ловкости. +3 к минимальному урону. +10% к точности.",
+        "effect": {"agility": 8, "min_damage": 3, "accuracy": 10},
+        "icon": "🧝🏹", "price": 18000,
+        "lore": "Изящный лук, созданный древними эльфами. Поёт при натяжении тетивы.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 2, "spider_silk": 4, "fairy_dust": 3}
+    },
+    "crossbow_repeating": {
+        "name": "Многозарядный арбалет", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "epic",
+        "desc": "+6 к ловкости. Атакует дважды за ход (шанс 30%).",
+        "effect": {"agility": 6, "double_hit_chance": 30},
+        "icon": "🏹🔄", "price": 22000,
+        "lore": "Арбалет с барабанным механизмом. Выпускает две стрелы разом.",
+        "craftable": True,
+        "craft_materials": {"steel_shard": 5, "bronze_alloy": 4, "iron_gear": 3}
+    },
+    "longbow_of_truth": {
+        "name": "Длинный лук Истины", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "legendary",
+        "desc": "+12 к ловкости. +5 к минимальному урону. +15% к точности. Игнорирует уклонение.",
+        "effect": {"agility": 12, "min_damage": 5, "accuracy": 15, "ignore_dodge": True},
+        "icon": "🎯", "price": 55000,
+        "lore": "Лук, который никогда не промахивается. Стрела всегда находит цель.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 5, "moon_silk": 3, "rat_king_eye": 2}
+    },
+    "storm_bow": {
+        "name": "Лук Бури", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "legendary",
+        "desc": "+15 к ловкости. Молния — +8 урона (шанс 15%).",
+        "effect": {"agility": 15, "lightning_damage": 8},
+        "icon": "⚡🏹", "price": 60000,
+        "lore": "Лук, вырезанный из дерева, в которое ударила молния. Искрит в руках.",
+        "craftable": True,
+        "craft_materials": {"mithril_nugget": 4, "storm_spark": 2, "phoenix_ember": 2}
+    },
+    "phoenix_bow": {
+        "name": "Лук Феникса", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "mythic",
+        "desc": "+18 к ловкости. Огненные стрелы — +12 урона огнём (шанс 20%).",
+        "effect": {"agility": 18, "fire_damage": 12},
+        "icon": "🔥🏹", "price": 180000,
+        "lore": "Лук, пылающий вечным огнём. Стрелы загораются в полёте.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 2, "phoenix_ember": 4, "star_silk": 2}
+    },
+    "void_bow": {
+        "name": "Лук Бездны", "type": "equipment", "slot": "weapon",
+        "role": "rat", "rarity": "mythic",
+        "desc": "+16 к ловкости. Теневые стрелы — игнорируют броню.",
+        "effect": {"agility": 16, "ignore_defense": True},
+        "icon": "🌑🏹", "price": 190000,
+        "lore": "Лук из самой темноты. Его стрелы проходят сквозь любую защиту.",
+        "craftable": True,
+        "craft_materials": {"void_essence": 3, "obsidian_scale": 5, "spark_creation": 2}
+    },
+    "celestial_longbow": {
+        "name": "Небесный длинный лук", "type": "equipment", "slot": "weapon",
+        "role": "mouse", "rarity": "mythic",
+        "desc": "+22 к ловкости. +8 к минимальному урону. +25% к точности. Звёздный дождь — атакует 3 раза (шанс 10%).",
+        "effect": {"agility": 22, "min_damage": 8, "accuracy": 25, "triple_hit_chance": 10},
+        "icon": "🌟🏹", "price": 250000,
+        "lore": "Лук, сотканный из звёздного света. Выпускает целый град стрел.",
+        "craftable": True,
+        "craft_materials": {"spark_creation": 5, "star_silk": 4, "labyrinth_heart": 2}
+    },
+}
+
+# ========== УРОН ЛУКОВ ==========
+WEAPON_DAMAGE.update({
+    "wooden_bow": {"min_damage": 2, "max_damage": 4},
+    "hunter_bow": {"min_damage": 3, "max_damage": 5},
+    "composite_bow": {"min_damage": 4, "max_damage": 7},
+    "elven_bow": {"min_damage": 5, "max_damage": 10},
+    "crossbow_repeating": {"min_damage": 4, "max_damage": 8},
+    "longbow_of_truth": {"min_damage": 7, "max_damage": 14},
+    "storm_bow": {"min_damage": 8, "max_damage": 16},
+    "phoenix_bow": {"min_damage": 10, "max_damage": 20},
+    "void_bow": {"min_damage": 9, "max_damage": 18},
+    "celestial_longbow": {"min_damage": 14, "max_damage": 26},
+})
+
+# ========== РЕЦЕПТЫ ЛУКОВ ==========
+NEW_BOW_RECIPES = {
+    "recipe_wooden_bow": {
+        "name": "Рецепт: Деревянный лук", "type": "recipe", "rarity": "common",
+        "desc": "Открывает крафт Деревянного лука",
+        "icon": "📜", "price": 300,
+        "result_item": "wooden_bow",
+        "materials": {"pigeon_feather": 3, "mouse_bone": 2, "spider_web": 2},
+        "lore": "Базовый рецепт для начинающих лучников."
+    },
+    "recipe_elven_bow": {
+        "name": "Рецепт: Эльфийский лук", "type": "recipe", "rarity": "epic",
+        "desc": "Открывает крафт Эльфийского лука",
+        "icon": "📜", "price": 12000,
+        "result_item": "elven_bow",
+        "materials": {"mithril_nugget": 2, "spider_silk": 4, "fairy_dust": 3},
+        "lore": "Рецепт древних эльфов, сохранённый в веках."
+    },
+    "recipe_longbow_of_truth": {
+        "name": "Рецепт: Длинный лук Истины", "type": "recipe", "rarity": "legendary",
+        "desc": "Открывает крафт Длинного лука Истины",
+        "icon": "📜", "price": 35000,
+        "result_item": "longbow_of_truth",
+        "materials": {"mithril_nugget": 5, "moon_silk": 3, "rat_king_eye": 2},
+        "lore": "Лук, который видит ложь и поражает её."
+    },
+    "recipe_celestial_longbow": {
+        "name": "Рецепт: Небесный длинный лук", "type": "recipe", "rarity": "mythic",
+        "desc": "Открывает крафт Небесного длинного лука",
+        "icon": "📜", "price": 120000,
+        "result_item": "celestial_longbow",
+        "materials": {"spark_creation": 5, "star_silk": 4, "labyrinth_heart": 2},
+        "lore": "Рецепт, начертанный на небесах звёздами."
+    },
+}
 # ========== ВСЕ ПРЕДМЕТЫ ==========
-ALL_ITEMS = {**RESOURCES, **EQUIPMENT, **CONSUMABLES, **CHESTS, **RECIPES}
+ALL_ITEMS = {**RESOURCES, **EQUIPMENT, **NEW_WEAPONS, **NEW_BOWS, **CLASS_ARMORS, **ENCHANT_GEMS, **ENCHANT_SCROLLS, **CONSUMABLES, **CHESTS, **RECIPES, **NEW_RECIPES, **NEW_BOW_RECIPES, **CLASS_ARMOR_RECIPES}
 
 # ========== ШАНСЫ ВЫПАДЕНИЯ ==========
 DROP_CHANCES = {

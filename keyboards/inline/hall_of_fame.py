@@ -5,4 +5,5 @@ def get_hall_of_fame_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🏆 Достижения", callback_data="profile_achievements"),
          InlineKeyboardButton("🎖️ Титулы", callback_data="profile_titles")],
         [InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
+        [InlineKeyboardButton("🔄 Сменить класс (5000 🧀)", callback_data="change_class_menu")],
     ])

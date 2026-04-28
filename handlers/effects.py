@@ -4,7 +4,7 @@ import random
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
-from handlers.items import EQUIPMENT, CONSUMABLES
+from handlers.items import ALL_ITEMS, CONSUMABLES
 from handlers.inventory import add_xp, get_random_item, add_item, get_equipment, get_active_temp_effects
 
 
@@ -15,8 +15,8 @@ def get_player_effects(user_id: int, player_role: str = None) -> Dict[str, Any]:
     
     # Эффекты экипировки
     for slot, item_id in equipment.items():
-        if item_id in EQUIPMENT:
-            item = EQUIPMENT[item_id]
+        if item_id in ALL_ITEMS:
+            item = ALL_ITEMS[item_id]
             
             # 🆕 ИСПРАВЛЕНО: если player_role == "all" или None — берем ВСЕ предметы!
             if player_role and player_role != "all":

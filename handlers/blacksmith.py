@@ -1,6 +1,6 @@
 """Кузница — вход из города, крафт предметов"""
 
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from telegram import constants
 import sys
@@ -10,7 +10,7 @@ from handlers.items import ALL_ITEMS, RECIPES, get_available_recipes
 from handlers.inventory import add_item, get_crumbs, spend_crumbs, add_action_history
 from handlers.crafting import (
     get_player_resources, spend_materials, has_materials,
-    roll_craft_dice, check_craft_success, check_craft_critical,
+    check_craft_success, check_craft_critical,
     get_quality_from_roll, save_crafted_item, get_craft_difficulty_info,
     CraftQuality
 )
@@ -19,12 +19,17 @@ from keyboards.inline.blacksmith import (
     get_forge_craft_result_keyboard, get_forge_resources_keyboard,
     get_forge_recipes_keyboard
 )
-from core.dice.engine import get_dice_engine
+from core.dice.engine import get_dice_engine, DICE_STICKERS
 import random
 import asyncio
 
 # Единый движок кубиков
 dice_engine = get_dice_engine()
+
+# Эмодзи редкости
+RARITY_EMOJI = {
+    "common": "⚪", "rare": "🔵", "epic": "🟣", "legendary": "🟡", "mythic": "🔴"
+}
 
 
 # ========== ГАДАЛКА ==========
@@ -47,7 +52,7 @@ async def forge_fortune(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ========== ГЛАВНОЕ МЕНЮ ==========
 async def blacksmith_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Главное меню кузницы"""
+    """Главное меню кузницы — без списка рецептов"""
     query = update.callback_query
     user_id = query.from_user.id
     
@@ -171,26 +176,83 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
     await query.answer("⚒️ Начинаем ковку...")
     await query.message.delete()
     
-    # АНИМАЦИЯ КОВКИ
-    anim_msgs = ["🔥 *Разогрев горна...*", "⚒️ *Удар молота!*", "✨ *Закалка в масле...*"]
-    anim_msg = await context.bot.send_message(chat_id=user_id, text=anim_msgs[0], parse_mode=constants.ParseMode.MARKDOWN)
-    for i in range(1, 3):
-        await asyncio.sleep(0.5)
-        await anim_msg.edit_text(anim_msgs[i], parse_mode=constants.ParseMode.MARKDOWN)
-    await asyncio.sleep(0.5)
+    # АНИМАЦИЯ КОВКИ С ФОТО (каждое фото 3.0 сек)
+    anim_data = [
+        ("/root/bot/images/forge_fire.jpg", "🔥 *Разогрев горна...*"),
+        ("/root/bot/images/forge_hammer.jpg", "⚒️ *Удар молота!*"),
+        ("/root/bot/images/forge_quench.jpg", "✨ *Закалка в масле...*"),
+    ]
+    
+    for image_path, caption in anim_data:
+        try:
+            with open(image_path, "rb") as photo:
+                anim_photo = await context.bot.send_photo(
+                    chat_id=user_id, photo=photo, caption=caption,
+                    parse_mode=constants.ParseMode.MARKDOWN
+                )
+        except:
+            anim_photo = await context.bot.send_message(
+                chat_id=user_id, text=caption,
+                parse_mode=constants.ParseMode.MARKDOWN
+            )
+        await asyncio.sleep(3.0)
+        try:
+            await anim_photo.delete()
+        except:
+            pass
+    
+    # 🎲 АНИМАЦИЯ БРОСКА КУБИКОВ СО СТИКЕРАМИ (каждый этап 3.0 сек)
+    anim_msg = await context.bot.send_message(
+        chat_id=user_id, 
+        text="🎲 *Бросаем кубики...*", 
+        parse_mode=constants.ParseMode.MARKDOWN
+    )
+    await asyncio.sleep(3.0)
     await anim_msg.delete()
     
-    # 🎲 БРОСОК КУБИКОВ ЧЕРЕЗ DICE ENGINE
+    # 🎲 БРОСОК КУБИКОВ
     craft_result = dice_engine.roll_craft()
     dice_sum = craft_result.total
+    
+    sticker_msgs = []
+    for roll in craft_result.rolls:
+        if roll in DICE_STICKERS:
+            try:
+                msg = await context.bot.send_sticker(chat_id=user_id, sticker=DICE_STICKERS[roll])
+                sticker_msgs.append(msg)
+            except:
+                msg = await context.bot.send_message(
+                    chat_id=user_id, 
+                    text=f"🎲 Выпало: *{roll}*", 
+                    parse_mode=constants.ParseMode.MARKDOWN
+                )
+                sticker_msgs.append(msg)
+        else:
+            msg = await context.bot.send_message(
+                chat_id=user_id, 
+                text=f"🎲 Выпало: *{roll}*", 
+                parse_mode=constants.ParseMode.MARKDOWN
+            )
+            sticker_msgs.append(msg)
+        await asyncio.sleep(3.0)
+    
+    # Удаляем ВСЕ сообщения кубиков
+    for msg in sticker_msgs:
+        try:
+            await msg.delete()
+        except:
+            pass
+    
+    # ФОРМИРОВАНИЕ РЕЗУЛЬТАТА
+    text = f"⚒️ *КОВКА ЗАВЕРШЕНА!*\n\n"
+    text += f"🎲 Выпало: *{craft_result.rolls[0]}* + *{craft_result.rolls[1]}* = *{craft_result.total}*\n\n"
     
     # Проклятый рецепт
     if recipe.get("cursed"):
         success_chance = recipe.get("success_chance", 0.3)
         if random.random() > success_chance:
             spend_materials(user_id, recipe["materials"])
-            text = f"💀 *ПРОКЛЯТАЯ КОВКА — ПРОВАЛ!*\n\n"
-            text += craft_result.format() + "\n\n"
+            text += f"💀 *ПРОКЛЯТАЯ КОВКА — ПРОВАЛ!*\n\n"
             text += f"💔 *Рецепт поглотил материалы!*\n"
             if recipe.get("fail_result"):
                 fail_item = ALL_ITEMS.get(recipe["fail_result"], {})
@@ -201,9 +263,15 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
             image_path = "/root/bot/images/forge_fail.jpg"
             try:
                 with open(image_path, "rb") as photo:
-                    await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+                    await context.bot.send_photo(
+                        chat_id=user_id, photo=photo, caption=text, 
+                        parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+                    )
             except:
-                await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+                await context.bot.send_message(
+                    chat_id=user_id, text=text, 
+                    parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+                )
             
             update_user_data(user_id, "forge_fails", get_user_data(user_id, "forge_fails", 0) + 1)
             return
@@ -217,13 +285,13 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
         if random.random() < 0.3:
             from handlers.inventory import remove_item
             remove_item(user_id, recipe_id, 1)
-            text = f"💔 *КОВКА ПРОВАЛЕНА!*\n\n{craft_result.format()}\n\n📜 *Рецепт уничтожен!*\n❌ {fail_reason}"
+            text += f"💔 *КОВКА ПРОВАЛЕНА!*\n\n📜 *Рецепт уничтожен!*\n❌ {fail_reason}"
         elif random.random() < 0.5:
-            text = f"❌ *КОВКА ПРОВАЛЕНА!*\n\n{craft_result.format()}\n\n📦 *Материалы потеряны!*\n❌ {fail_reason}"
+            text += f"❌ *КОВКА ПРОВАЛЕНА!*\n\n📦 *Материалы потеряны!*\n❌ {fail_reason}"
         else:
             add_item(user_id, result_item_id)
             quality, bonuses = get_quality_from_roll(dice_sum)
-            text = f"⚒️ *КОВКА ЗАВЕРШЕНА!*\n\n{craft_result.format()}\n\n💎 Качество: {quality.color} *{quality.display.upper()}*\n📦 Создано: {result_item.get('icon','📦')} *{result_item.get('name','???')}*\n"
+            text += f"💎 Качество: {quality.color} *{quality.display.upper()}*\n📦 Создано: {result_item.get('icon','📦')} *{result_item.get('name','???')}*\n"
             add_action_history(user_id, f"Скрафчен {result_item.get('name', 'предмет')} ({quality.display})", "🔨")
         
         update_user_data(user_id, "forge_fails", get_user_data(user_id, "forge_fails", 0) + 1)
@@ -241,9 +309,15 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
         image_path = "/root/bot/images/forge_fail.jpg"
         try:
             with open(image_path, "rb") as photo:
-                await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+                await context.bot.send_photo(
+                    chat_id=user_id, photo=photo, caption=text, 
+                    parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+                )
         except:
-            await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+            await context.bot.send_message(
+                chat_id=user_id, text=text, 
+                parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+            )
         return
     
     # УСПЕХ
@@ -270,17 +344,33 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
     if crit:
         add_item(user_id, result_item_id)
         add_action_history(user_id, f"Двойная ковка: {result_item.get('name', 'предмет')}", "🌟")
+        text += "\n🌟 *ДВОЙНАЯ КОВКА!* Создано 2 предмета!\n"
     
-    text = f"⚒️ *КОВКА ЗАВЕРШЕНА!*\n\n{craft_result.format()}\n\n"
     text += f"💎 Качество: {quality.color} *{quality.display.upper()}*\n"
     text += f"👤 Создал: *{crafter_name}*\n"
     text += f"📦 Создано: {result_item.get('icon','📦')} *{result_item.get('name','???')}*\n"
+    
     if is_critical:
         text += "\n🌟 *КРИТИЧЕСКИЙ УСПЕХ!* Качество повышено!\n"
-    if crit:
-        text += "\n🌟 *ДВОЙНАЯ КОВКА!* Создано 2 предмета!\n"
+    
     if bonuses:
-        text += "\n✨ *Бонусы качества:*\n" + "\n".join([f"  +{v} к {k}" for k, v in bonuses.items()])
+        stat_names = {
+            "strength": "💪 Силе", 
+            "agility": "🍀 Ловкости", 
+            "intelligence": "🧠 Интеллекту", 
+            "max_health": "❤️ Здоровью", 
+            "all_stats": "⭐ Всем характеристикам"
+        }
+        text += "\n✨ *Бонусы качества:*\n" + "\n".join([f"  +{v} к {stat_names.get(k, k)}" for k, v in bonuses.items()])
+    
+    # Атмосферная фраза
+    phrases = [
+        "_Ты чувствуешь как древняя магия наполняет предмет силой..._",
+        "_Искры разлетаются в стороны, озаряя кузницу золотым светом..._",
+        "_Мастер довольно кивает — отличная работа!_",
+        "_Этот предмет займёт достойное место в твоём арсенале._"
+    ]
+    text += f"\n\n{random.choice(phrases)}"
     
     update_user_data(user_id, "forge_fails", 0)
     keyboard = get_forge_craft_result_keyboard()
@@ -288,17 +378,85 @@ async def forge_craft(update: Update, context: ContextTypes.DEFAULT_TYPE, recipe
     
     try:
         with open(image_path, "rb") as photo:
-            await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+            await context.bot.send_photo(
+                chat_id=user_id, photo=photo, caption=text, 
+                parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+            )
     except:
-        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+        await context.bot.send_message(
+            chat_id=user_id, text=text, 
+            parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard
+        )
 
 
-# ========== ЗАТОЧКА + ИНКРУСТИРОВАНИЕ (ЗАГЛУШКИ) ==========
+# ========== ЗАТОЧКА ПРЕДМЕТОВ ==========
 async def forge_sharpen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Заточка оружия — заглушка"""
+    """Заточка предметов"""
     query = update.callback_query
-    await query.answer("🗡️ Заточка скоро появится! Мастер точит камни...", show_alert=True)
+    user_id = query.from_user.id
+    
+    from handlers.inventory import get_inventory, get_equipment
+    from handlers.items import ALL_ITEMS, ENCHANT_SCROLLS
+    from handlers.enchant import get_enchant_level, get_enchant_bonus
+    
+    equipment = get_equipment(user_id)
+    inventory = get_inventory(user_id)
+    
+    scrolls = {}
+    for scroll_id, scroll in ENCHANT_SCROLLS.items():
+        qty = inventory.get(scroll_id, 0)
+        if qty > 0:
+            scrolls[scroll_id] = qty
+    
+    if not scrolls:
+        await query.answer("❌ Нет свитков заточки!", show_alert=True)
+        return
+    
+    text = "⚡ *ЗАТОЧКА ПРЕДМЕТОВ*\n\n_Выбери предмет который хочешь заточить:_\n\n"
+    
+    keyboard = []
+    for slot_key, slot_icon in [('weapon', '⚔️'), ('armor', '🛡️'), ('head', '🎩'), ('accessory', '💍')]:
+        item_id = equipment.get(slot_key, '')
+        if item_id:
+            base_id = item_id.rsplit("+", 1)[0] if "+" in item_id else item_id
+            item = ALL_ITEMS.get(base_id, ALL_ITEMS.get(item_id, {}))
+            if item:
+                ench_level = get_enchant_level(item_id)
+                ench_bonus = get_enchant_bonus(item_id)
+                ench_text = f" +{ench_level}" if ench_level > 0 else ""
+                bonus_text = ""
+                if ench_bonus.get('enchant_damage_min'):
+                    bonus_text = f" (+{ench_bonus['enchant_damage_min']} урона)"
+                elif ench_bonus.get('enchant_defense'):
+                    bonus_text = f" (+{ench_bonus['enchant_defense']} защиты)"
+                elif ench_bonus.get('enchant_magic_defense'):
+                    bonus_text = f" (+{ench_bonus['enchant_magic_defense']} м. защиты)"
+                text += f"{slot_icon} {item.get('icon','📦')} *{item.get('name','Предмет')}*{ench_text}{bonus_text}\n"
+                
+                for scroll_id, qty in scrolls.items():
+                    scroll = ENCHANT_SCROLLS[scroll_id]
+                    if "weapon" in scroll_id and slot_key != "weapon":
+                        continue
+                    if "armor" in scroll_id and slot_key not in ["armor", "head"]:
+                        continue
+                    keyboard.append([InlineKeyboardButton(
+                        f"{slot_icon} {item.get('name','')}{ench_text} — {scroll['name']} (x{qty})",
+                        callback_data=f"enchant_{item_id}_{scroll_id}"
+                    )])
+    
+    text += f"\n_Доступные свитки:_\n"
+    for scroll_id, qty in scrolls.items():
+        scroll = ENCHANT_SCROLLS[scroll_id]
+        text += f"  {scroll['icon']} {scroll['name']} (x{qty})\n"
+    
+    keyboard.append([InlineKeyboardButton("🔙 В кузницу", callback_data="city_forge")])
+    
+    await query.message.delete()
+    await context.bot.send_message(chat_id=user_id, text=text, parse_mode='Markdown', 
+                                   reply_markup=InlineKeyboardMarkup(keyboard))
 
+
+# ========== ИНКРУСТИРОВАНИЕ (ЗАГЛУШКА) ==========
 async def forge_engrave(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Инкрустирование — заглушка"""
     query = update.callback_query
@@ -312,39 +470,27 @@ async def forge_show_resources(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = query.from_user.id
     
     resources = get_player_resources(user_id)
-    text = f"📦 *МОИ РЕСУРСЫ*\n\n"
     
-    if not resources:
-        text += "_Нет ресурсов._\n"
-    else:
-        text += "📜 *РЕЦЕПТЫ:*\n"
-        has_recipes = False
-        for res_id, qty in resources.items():
-            res = ALL_ITEMS.get(res_id, {})
-            if res.get('type') == 'recipe' and qty > 0:
-                text += f"  {res.get('icon','📜')} {res.get('name',res_id)}: *{qty}* шт.\n"
-                has_recipes = True
-        if not has_recipes:
-            text += "  _Нет рецептов (убей мобов в туннелях!)_\n"
-        
-        categories = {
-            "metal": "🔩 МЕТАЛЛЫ", "fabric": "🧵 ТКАНИ", "bone": "🦴 КОСТИ",
-            "alchemy": "🧪 АЛХИМИЯ", "food": "🍖 ПРОВИЗИЯ", "blueprint": "📜 ЧЕРТЕЖИ",
-            "magic": "🔮 МАГИЯ", "other": "🪨 ПРОЧЕЕ"
-        }
-        for cat_id, cat_name in categories.items():
-            cat_items = []
-            for res_id, qty in resources.items():
-                res = ALL_ITEMS.get(res_id, {})
-                if res.get("resource_type") == cat_id and qty > 0:
-                    cat_items.append(f"  {res.get('icon','📦')} {res.get('name',res_id)}: *{qty}*")
-            if cat_items:
-                text += f"\n{cat_name}:\n" + "\n".join(cat_items) + "\n"
+    cats = {"metal": 0, "fabric": 0, "bone": 0, "alchemy": 0, "food": 0, "magic": 0, "other": 0}
+    for res_id, qty in resources.items():
+        res = ALL_ITEMS.get(res_id, {})
+        cat = res.get("resource_type", "other")
+        if cat in cats:
+            cats[cat] += qty
+    
+    from handlers.inventory import get_inventory_slots
+    used, total = get_inventory_slots(user_id)
+    
+    text = f"📦 *Мои ресурсы*\n\n"
+    text += f"_Потрёпанная сумка искателя подземелий._\n\n"
+    text += f"🎒 Занято мест: {used}/{total}\n\n"
+    text += f"🔩 Металлы: {cats['metal']}  |  🧵 Ткани: {cats['fabric']}  |  🦴 Кости: {cats['bone']}\n"
+    text += f"🧪 Алхимия: {cats['alchemy']}  |  🍖 Провизия: {cats['food']}  |  🔮 Магия: {cats['magic']}\n"
+    text += f"🪨 Прочее: {cats['other']}"
     
     keyboard = get_forge_resources_keyboard()
     await query.message.delete()
     
-    # 🆕 КАРТИНКА ДЛЯ РЕСУРСОВ
     try:
         with open("/root/bot/images/forge_resources.jpg", "rb") as photo:
             await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text, 
@@ -352,6 +498,142 @@ async def forge_show_resources(update: Update, context: ContextTypes.DEFAULT_TYP
     except:
         await context.bot.send_message(chat_id=user_id, text=text, 
                                        parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+
+
+async def forge_show_resources_category(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str):
+    """Показывает ресурсы по категории с редкостью"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    resources = get_player_resources(user_id)
+    
+    cat_names = {
+        "metal": "🔩 Металлы", "fabric": "🧵 Ткани", "bone": "🦴 Кости",
+        "alchemy": "🧪 Алхимия", "food": "🍖 Провизия", "magic": "🔮 Магия", "other": "🪨 Прочее"
+    }
+    
+    text = f"📦 *{cat_names.get(category, category)}*\n\n"
+    
+    found = False
+    for res_id, qty in resources.items():
+        res = ALL_ITEMS.get(res_id, {})
+        if res.get("resource_type") == category and qty > 0:
+            rarity = res.get("rarity", "common")
+            rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+            icon = res.get('icon', '📦')
+            name = res.get('name', res_id)
+            text += f"  [{rarity_emoji}] {icon} {name}({qty})\n"
+            found = True
+    
+    if not found:
+        text += "_Нет ресурсов этой категории_"
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 К ресурсам", callback_data="forge_resources")],
+    ])
+    
+    await query.message.delete()
+    await context.bot.send_message(chat_id=user_id, text=text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
+
+
+async def forge_show_resources_all(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int = 1):
+    """Показывает ВСЕ ресурсы с пагинацией"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    resources = get_player_resources(user_id)
+    
+    all_resources = []
+    for res_id, qty in resources.items():
+        res = ALL_ITEMS.get(res_id, {})
+        if res.get('type') == 'resource' and qty > 0:
+            rarity = res.get("rarity", "common")
+            rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+            icon = res.get('icon', '📦')
+            name = res.get('name', res_id)
+            all_resources.append(f"[{rarity_emoji}] {icon} {name}({qty})")
+    
+    ITEMS_PER_PAGE = 15
+    total = len(all_resources)
+    total_pages = max(1, (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    page = max(1, min(page, total_pages))
+    
+    start = (page - 1) * ITEMS_PER_PAGE
+    end = min(start + ITEMS_PER_PAGE, total)
+    
+    text = f"📦 *Все ресурсы* ({page}/{total_pages})\n\n"
+    
+    if total == 0:
+        text += "_Нет ресурсов_"
+    else:
+        for item in all_resources[start:end]:
+            text += f"  {item}\n"
+    
+    keyboard = []
+    nav_row = []
+    if page > 1:
+        nav_row.append(InlineKeyboardButton("◀ Назад", callback_data=f"forge_all_page_{page-1}"))
+    if page < total_pages:
+        nav_row.append(InlineKeyboardButton("Вперёд ▶", callback_data=f"forge_all_page_{page+1}"))
+    if nav_row:
+        keyboard.append(nav_row)
+    
+    keyboard.append([InlineKeyboardButton("🔙 К ресурсам", callback_data="forge_resources")])
+    
+    await query.message.delete()
+    await context.bot.send_message(chat_id=user_id, text=text, 
+                                   parse_mode=constants.ParseMode.MARKDOWN, 
+                                   reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def forge_show_recipes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает ВСЕ рецепты игрока с кнопками Ковать"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    resources = get_player_resources(user_id)
+    
+    text = f"📜 *Мои рецепты*\n\n"
+    
+    has_recipes = False
+    for recipe_id, recipe in RECIPES.items():
+        qty = resources.get(recipe_id, 0)
+        if qty > 0:
+            has_recipes = True
+            all_have = True
+            missing = []
+            for mat_id, mat_qty in recipe["materials"].items():
+                have = resources.get(mat_id, 0)
+                if have < mat_qty:
+                    all_have = False
+                    mat = ALL_ITEMS.get(mat_id, {"name": mat_id})
+                    missing.append(f"{mat.get('name', mat_id)} ({have}/{mat_qty})")
+            
+            rarity = recipe.get("rarity", "common")
+            rarity_emoji = RARITY_EMOJI.get(rarity, "⚪")
+            
+            if all_have:
+                text += f"  ✅ [{rarity_emoji}] {recipe['icon']} {recipe['name']}({qty}) — *можно ковать*\n"
+            else:
+                text += f"  ❌ [{rarity_emoji}] {recipe['icon']} {recipe['name']}({qty})\n"
+                if missing:
+                    text += f"     _не хватает: {', '.join(missing)}_\n"
+    
+    if not has_recipes:
+        text += "_Нет рецептов. Убей мобов в туннелях чтобы получить!_"
+    
+    keyboard = get_forge_recipes_keyboard(resources)
+    await query.message.delete()
+    
+    try:
+        with open("/root/bot/images/forge_recipes.jpg", "rb") as photo:
+            await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text,
+                                         parse_mode=constants.ParseMode.MARKDOWN, 
+                                         reply_markup=keyboard)
+    except:
+        await context.bot.send_message(chat_id=user_id, text=text,
+                                       parse_mode=constants.ParseMode.MARKDOWN, 
+                                       reply_markup=keyboard)
 
 
 # ========== ХРАНЕНИЕ ДАННЫХ КУЗНИЦЫ ==========
@@ -370,49 +652,6 @@ def get_user_data(user_id: int, key: str, default=None):
             return int(row[0]) if row[0].isdigit() else row[0]
         return default
 
-async def forge_show_recipes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает ВСЕ рецепты игрока"""
-    query = update.callback_query
-    user_id = query.from_user.id
-    
-    resources = get_player_resources(user_id)
-    
-    text = f"📜 *МОИ РЕЦЕПТЫ*\n\n"
-    
-    has_recipes = False
-    for recipe_id, recipe in RECIPES.items():
-        qty = resources.get(recipe_id, 0)
-        if qty > 0:
-            has_recipes = True
-            all_have = True
-            missing = []
-            for mat_id, mat_qty in recipe["materials"].items():
-                have = resources.get(mat_id, 0)
-                if have < mat_qty:
-                    all_have = False
-                    mat = ALL_ITEMS.get(mat_id, {"name": mat_id})
-                    missing.append(f"{mat.get('name', mat_id)} ({have}/{mat_qty})")
-            
-            if all_have:
-                text += f"  ✅ {recipe['icon']} {recipe['name']}: *{qty}* шт. — можно ковать\n"
-            else:
-                text += f"  ❌ {recipe['icon']} {recipe['name']}: *{qty}* шт.\n"
-                text += f"     _не хватает: {', '.join(missing)}_\n"
-    
-    if not has_recipes:
-        text += "_Нет рецептов. Убей мобов в туннелях чтобы получить!_"
-    
-    keyboard = get_forge_recipes_keyboard()
-    await query.message.delete()
-    
-    # 🆕 КАРТИНКА ДЛЯ РЕЦЕПТОВ
-    try:
-        with open("/root/bot/images/forge_recipes.jpg", "rb") as photo:
-            await context.bot.send_photo(chat_id=user_id, photo=photo, caption=text,
-                                         parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
-    except:
-        await context.bot.send_message(chat_id=user_id, text=text,
-                                       parse_mode=constants.ParseMode.MARKDOWN, reply_markup=keyboard)
 
 def update_user_data(user_id: int, key: str, value):
     """Обновляет данные игрока в БД"""

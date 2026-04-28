@@ -416,10 +416,14 @@ def get_match_history(user_id: int, limit: int = 10):
 
 # ========== ЭКИПИРОВКА ==========
 def equip_item(user_id: int, item_id: str) -> bool:
-    if item_id not in EQUIPMENT:
+    if item_id not in ALL_ITEMS:
         return False
-    item = EQUIPMENT[item_id]
-    slot = item["slot"]
+    item = ALL_ITEMS[item_id]
+    if item.get("type") != "equipment":
+        return False
+    slot = item.get("slot")
+    if not slot:
+        return False
     
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -449,8 +453,8 @@ def get_equipped_effects(user_id: int, player_role: str) -> Dict:
     effects = {}
     equipment = get_equipment(user_id)
     for slot, item_id in equipment.items():
-        if item_id in EQUIPMENT:
-            item = EQUIPMENT[item_id]
+        if item_id in ALL_ITEMS:
+            item = ALL_ITEMS[item_id]
             if item.get("role") in [player_role, "all"]:
                 for k, v in item.get("effect", {}).items():
                     if k in effects:
@@ -541,6 +545,12 @@ def add_xp(user_id: int, amount: int, context=None):
         if level_up and context:
             sync_level_and_points(user_id, new_level)
             add_action_history(user_id, f"Достигнут {new_level} уровень", "🎉")
+            
+            # Если 10 уровень — предлагаем выбрать класс
+            if new_level == 10:
+                from handlers.class_selection import send_class_selection
+                asyncio.create_task(send_class_selection(context, user_id))
+            
             from handlers.notifications import send_level_up_message
             asyncio.create_task(send_level_up_message(context, user_id, new_level, old_level))
         

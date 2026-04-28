@@ -166,26 +166,35 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         f"📖 *СВИТОК ЗНАНИЙ, {escape_markdown(user_name)}*\n\n"
-        f"📸 *КОНВЕРТЕР INSTAGRAM*\n"
-        f"Отправь ссылку на пост или рилс — я пришлю прямую ссылку для скачивания.\n\n"
-        f"🐀 *ИГРА «КРЫСА»*\n"
-        f"├─ /rat\\_start — создать лобби (используй кнопки для управления)\n"
-        f"├─ /rat\\_stop — принудительно завершить игру (только создатель)\n"
-        f"├─ /rat\\_rules — подробные правила, роли, фазы и советы\n"
-        f"├─ /rat\\_top — таблица лучших игроков Ратляндии\n"
-        f"└─ /rat\\_me — твои личные показатели\n\n"
-        f"👤 *ПРОФИЛЬ И ПРОГРЕСС*\n"
-        f"├─ /profile — главная страница персонажа (только в ЛС)\n"
-        f"├─ /inventory — просмотр и управление предметами\n"
-        f"├─ /achievements — разблокированные и скрытые достижения\n"
-        f"└─ /crumbs — баланс крошек (местная валюта)\n\n"
-        f"🏪 *ДОПОЛНИТЕЛЬНО*\n"
-        f"├─ /shop — потратить крошки на редкие предметы\n"
-        f"├─ /daily — ежедневная награда (сбрасывается раз в 24 часа)\n"
-        f"└─ /clan — информация о кланах и гильдиях\n\n"
-        f"❓ *Нужна помощь?* Пиши @pashadark\n"
+        f"🏰 *ГОРОД*\n"
+        f"├─ /city — главное меню города\n"
+        f"├─ /profile — твой профиль и статистика\n"
+        f"├─ /inventory — рюкзак со всеми предметами\n"
+        f"├─ /equipment — надеть или снять предметы\n"
+        f"├─ /shop — купить редкие товары за крошки\n"
+        f"├─ /daily — ежедневная награда\n"
+        f"└─ /crumbs — твой баланс крошек\n\n"
+        f"🕳️ *ТУННЕЛИ*\n"
+        f"├─ /tunnel — спуститься в туннели\n"
+        f"├─ /tunnel\\_stats — прокачка характеристик\n"
+        f"└─ /tunnel\\_run — начать забег\n\n"
+        f"⚒️ *КУЗНИЦА И ЦЕРКОВЬ*\n"
+        f"├─ /forge — кузница (крафт и заточка)\n"
+        f"└─ /church — отдых и восстановление здоровья\n\n"
+        f"👥 *КЛАНЫ*\n"
+        f"└─ /clan — твой клан, топ, создать новый\n\n"
+        f"🏆 *ДОСТИЖЕНИЯ*\n"
+        f"├─ /achievements — все достижения\n"
+        f"├─ /titles — твои титулы\n"
+        f"└─ /history — последние действия\n\n"
+        f"🎲 *ТАВЕРНА*\n"
+        f"└─ /dice — игра в кости на крошки\n\n"
+        f"🏆 *СТАТИСТИКА*\n"
+        f"└─ /top — лучшие игроки\n"
         f"⚔️ *Удачной охоты!*"
     )
+    
+    await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN)
     
     await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN)
 
@@ -273,54 +282,6 @@ _Здесь, на древних стенах из сырного камня, в
                 )
         except:
             await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
-
-
-async def rat_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_name = update.effective_user.full_name
-    r = get_rating(user_id)
-    
-    display_name = r.get("nickname") if r else user_name
-    
-    if not r:
-        await update.message.reply_text(
-            f"📊 *{escape_markdown(display_name)}*, ты ещё не участвовал в охотах!\n"
-            f"Отправляйся в лобби — /rat\\_start",
-            parse_mode=constants.ParseMode.MARKDOWN
-        )
-        return
-    
-    winrate = round(r['wins'] / r['games'] * 100) if r['games'] > 0 else 0
-    rat_winrate = round(r['wins_as_rat'] / r['games_as_rat'] * 100) if r['games_as_rat'] > 0 else 0
-    mouse_winrate = round(r['wins_as_mouse'] / r['games_as_mouse'] * 100) if r['games_as_mouse'] > 0 else 0
-    xp = get_user_xp(user_id)
-    level = get_level_from_xp(xp)
-    
-    text = (
-        f"📜 *СВИТОК ОХОТНИКА: {escape_markdown(display_name)}*\n\n"
-        f"⭐ Уровень: {level}\n"
-        f"✨ Опыт: {xp} XP\n\n"
-        f"🎮 Всего игр: *{r['games']}*\n"
-        f"🏆 Всего побед: *{r['wins']}* ({winrate}%)\n\n"
-        f"🐀 *КРЫСА*\n"
-        f"├─ Игр: {r['games_as_rat']}\n"
-        f"└─ Побед: {r['wins_as_rat']} ({rat_winrate}%)\n\n"
-        f"🐭 *МЫШЬ*\n"
-        f"├─ Игр: {r['games_as_mouse']}\n"
-        f"└─ Побед: {r['wins_as_mouse']} ({mouse_winrate}%)\n\n"
-        f"Полный профиль: /profile"
-    )
-    
-    try:
-        with open("/root/bot/images/profile.jpg", "rb") as photo:
-            await update.message.reply_photo(
-                photo=photo,
-                caption=text,
-                parse_mode=constants.ParseMode.MARKDOWN
-            )
-    except:
-        await update.message.reply_text(text, parse_mode=constants.ParseMode.MARKDOWN)
-
 
 async def crumbs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
