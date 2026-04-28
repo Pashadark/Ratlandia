@@ -1,4 +1,4 @@
-"""Хендлеры для игры в кости (таверна) — ИСПОЛЬЗУЕТ ДВИЖОК"""
+"""Хендлеры для игры в кости (таверна)"""
 
 import asyncio
 import random
@@ -7,8 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from telegram import constants
 
-from services.tavern_service import get_tavern_service
-from services.dice_service import get_dice_service
+from services.dice import dice_service
 from core.dice.engine import get_dice_engine
 from keyboards.inline.dice import (
     get_bet_keyboard,
@@ -19,8 +18,6 @@ from keyboards.inline.dice import (
 )
 from core.dice.models import BetResult, DiceGameResult, GameMode
 
-tavern_service = get_tavern_service()
-dice_service = get_dice_service()
 dice = get_dice_engine()
 
 # Пути к картинкам

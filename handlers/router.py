@@ -49,10 +49,9 @@ from handlers.clan.commands import (
 )
 
 # Achievements & Titles
-from handlers.achievements.commands import titles_command
+from handlers.player.titles import titles_command
 
 # Dice (таверна)
-from handlers.dice.dice import dice_command, dice_callback, handle_bet_input, cancel_command
 
 # Hall of Fame
 from handlers.hall_of_fame import hall_of_fame
@@ -204,9 +203,6 @@ _Ты — один из жителей этого мира. Выбери сво�
     app.add_handler(CommandHandler("history", history_command))
 
     # ========== ТАВЕРНА ==========
-    app.add_handler(CommandHandler("dice", dice_command))
-    app.add_handler(CommandHandler("cancel", cancel_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_bet_input), group=1)
 
     # ========== ЗАЛ СЛАВЫ ==========
     async def hall_cmd(update, context):
