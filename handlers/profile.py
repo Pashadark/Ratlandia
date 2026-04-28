@@ -16,7 +16,6 @@ from handlers.inventory import get_action_history
 from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, EQUIPMENT_SLOTS, CHESTS, WEAPON_DAMAGE
 from handlers.achievements_data import ACHIEVEMENTS
 from handlers.titles import get_active_title, check_and_unlock_titles
-from handlers.game_rat import active_games
 from handlers.character import get_character_stats, sync_level_and_points
 from handlers.healing import restore_health_over_time
 from handlers.tunnel_monsters import get_tunnel_run
@@ -788,14 +787,6 @@ async def handle_equip(update: Update, context: ContextTypes.DEFAULT_TYPE, item_
 async def handle_use_consumable(update: Update, context: ContextTypes.DEFAULT_TYPE, item_id: str):
     user_id = update.effective_user.id
     try:
-        game = None
-        for g in active_games.values():
-            if user_id in g.players and g.players[user_id]["alive"]:
-                game = g
-                break
-        if not game:
-            await update.callback_query.answer("❌ Ты не в игре или мёртв!", show_alert=True)
-            return
         if use_consumable(user_id, item_id):
             item = CONSUMABLES.get(get_base_item_id(item_id), ALL_ITEMS.get(item_id, {"name": "Предмет"}))
             await update.callback_query.answer(f"✅ {item['name']} использован!")

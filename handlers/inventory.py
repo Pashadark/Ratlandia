@@ -6,12 +6,13 @@ import asyncio
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
+
 DB_FILE = "/root/bot/ratings.db"
 
 from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, CHESTS, DROP_CHANCES, EQUIPMENT_SLOTS
 from handlers.achievements_data import ACHIEVEMENTS
 from handlers.character import get_character_stats, sync_level_and_points
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -675,7 +676,158 @@ def update_stats(user_id: int, **kwargs):
             values = list(kwargs.values()) + [user_id]
             c.execute(f"UPDATE user_stats SET {','.join(updates)} WHERE user_id = ?", values)
         conn.commit()
+# ========== МЕНЮ СУНДУКОВ (для колбэков) ==========
+async def show_chests_menu(update: Update, context):
+    """Показывает меню сундуков для открытия"""
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram import constants
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    chests = get_available_chests(user_id)
+    
+    if not chests:
+        await query.answer("❌ У тебя нет сундуков!", show_alert=True)
+        return
+    
+    text = "*📦 ТВОИ СУНДУКИ*\n\nВыбери сундук чтобы открыть:\n\n"
+    
+    keyboard = []
+    for chest in chests:
+        text += f"{chest['icon']} {chest['name']} x{chest['quantity']}\n└ {chest['desc']}\n\n"
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{chest['icon']} Открыть {chest['name']}",
+                callback_data=f"open_chest_{chest['id']}"
+            )
+        ])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="city_menu")])
+    
+    await query.message.delete()
+    
+    first_chest = chests[0]
+    rarity = first_chest.get("rarity", "common")
+    image_path = CHEST_IMAGES_CLOSED.get(rarity, "/root/bot/images/chests/chest_common_closed.jpg")
+    
+    try:
+        with open(image_path, "rb") as photo:
+            await query.message.reply_photo(
+                photo=photo,
+                caption=text,
+                parse_mode=constants.ParseMode.MARKDOWN,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+    except:
+        import logging
+        logging.getLogger(__name__).error(f"Ошибка отправки меню сундуков")
+        await query.message.reply_text(
+            text=text,
+            parse_mode=constants.ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    await query.answer()
 
+
+async def handle_open_chest(update: Update, context, chest_id: str):
+    """Открывает выбранный сундук"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not chest_id.endswith("_chest"):
+        chest_id = f"{chest_id}_chest"
+        logger.info(f"Фикс chest_id: -> {chest_id}")
+    
+    result = open_chest(user_id, chest_id)
+    
+    if not result:
+        await query.answer("❌ Не удалось открыть сундук!", show_alert=True)
+        return
+    
+    if result["type"] == "single":
+        item = result["item"]
+        rarity = item.get("rarity", "common")
+        chest_open_image = CHEST_IMAGES_OPEN.get(rarity, "/root/bot/images/chests/chest_common.jpg")
+        
+        caption = f"📦 *СУНДУК ОТКРЫТ!*\n\n{result['chest_name']}\n\n🎁 Выпал предмет:\n*{item['name']}*\n└ {item['desc']}"
+        
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Назад", callback_data="profile_inventory")]
+        ])
+        
+        try:
+            with open(chest_open_image, "rb") as photo:
+                await query.message.reply_photo(
+                    photo=photo,
+                    caption=caption,
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                    reply_markup=keyboard
+                )
+        except:
+            await query.message.reply_text(
+                text=caption,
+                parse_mode=constants.ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+        
+        await query.answer(f"✅ Получено: {item['name']}!")
+    
+    elif result["type"] == "multiple":
+        items_dropped = result["items"]
+        image_path = CHEST_IMAGES_OPEN.get("legendary", "/root/bot/images/chests/chest_legendary.jpg")
+        
+        caption = f"📦 *СЫРНЫЙ СУНДУК ОТКРЫТ!*\n\n{result['chest_name']}\n\n🎁 Выпало {len(items_dropped)} предметов:\n"
+        
+        for drop_id in items_dropped[:5]:
+            drop_item = ALL_ITEMS.get(drop_id, {"name": "Предмет", "icon": "🎁"})
+            caption += f"\n{drop_item['icon']} {drop_item['name']}"
+        
+        if len(items_dropped) > 5:
+            caption += f"\n\n... и ещё {len(items_dropped) - 5} предметов!"
+        
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Назад", callback_data="profile_inventory")]
+        ])
+        
+        try:
+            with open(image_path, "rb") as photo:
+                await query.message.reply_photo(
+                    photo=photo,
+                    caption=caption,
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                    reply_markup=keyboard
+                )
+        except:
+            await query.message.reply_text(
+                text=caption,
+                parse_mode=constants.ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+        
+        await query.answer(f"✅ Получено {len(items_dropped)} предметов!")
+    
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+
+# ========== ИСПОЛЬЗОВАНИЕ РАСХОДНИКОВ (для колбэков) ==========
+async def handle_use_consumable_inv(update: Update, context, item_id: str):
+    """Использует расходник из инвентаря"""
+    user_id = update.effective_user.id
+    try:
+        if use_consumable(user_id, item_id):
+            item = CONSUMABLES.get(item_id, ALL_ITEMS.get(item_id, {"name": "Предмет"}))
+            await update.callback_query.answer(f"✅ {item['name']} использован!")
+        else:
+            await update.callback_query.answer("❌ Не удалось использовать предмет!", show_alert=True)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Ошибка в handle_use_consumable_inv: {e}")
 def check_and_unlock_achievements(user_id: int):
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()

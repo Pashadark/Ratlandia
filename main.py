@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re
 import logging
 import os
 import sqlite3
@@ -8,7 +7,6 @@ import platform
 import subprocess
 import sys
 import asyncio
-import time
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
 from telegram.error import NetworkError, TimedOut
@@ -25,20 +23,6 @@ from handlers.bug_report import bag_command, handle_bug_input, handle_bug_photo,
 
 from config import TOKEN, LOG_FILE, MIN_PLAYERS, MAX_PLAYERS
 from handlers.commands import start, help_command, rat_top, crumbs_command, handle_nickname_input
-from handlers.game_rat import (
-    rat_start, rat_stop, rat_rules,
-    handle_rat_kill, handle_rat_kill_none,
-    handle_rat_vote, handle_rat_vote_skip,
-    handle_ghost_vote, back_to_game,
-    show_consumables_menu, handle_use_consumable,
-    show_player_selection_for_item, handle_item_target_selection,
-    show_day_shot_menu, handle_day_shot,
-    handle_dead_message,
-    show_chests_menu, handle_open_chest,
-    escape_markdown,
-    active_games,
-    night_phase
-)
 from handlers.instagram import handle_message, shpite_handler
 from handlers.callbacks import button_callback
 from handlers.tunnel import tunnel_command, register_tunnel_handlers, show_stats_menu, start_new_run
@@ -86,7 +70,6 @@ async def error_handler(update, context):
 
 
 def get_server_info():
-    """Получает информацию о сервере"""
     info = {}
     info['time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     info['timezone'] = datetime.now().astimezone().tzname()
@@ -115,14 +98,12 @@ def get_server_info():
 
 
 def progress_bar(percent, length=40):
-    """Рисует прогресс-бар [████░░░░] XX%"""
     filled = int(length * percent / 100)
     bar = "█" * filled + "░" * (length - filled)
     return f"[{bar}] {percent}%"
 
 
 def run_startup_checks():
-    """Полная проверка всех систем при запуске с прогресс-барами"""
     server_info = get_server_info()
     all_ok = True
     warnings = []
@@ -133,14 +114,13 @@ def run_startup_checks():
     print("                    🐀 РАТЛЯНДИЯ — ЗАПУСК СИСТЕМЫ")
     print("=" * 80)
     
-    # ---------- 1/14 СЕРВЕР ----------
+    # 1/14 СЕРВЕР
     print(f"\n🖥️ [1/14] ПРОВЕРКА СЕРВЕРА")
     try:
         print(f"   {progress_bar(100)} ✅")
         print(f"   ⏰ {server_info['time']} ({server_info['timezone']}) | 💻 {server_info['system']} {server_info['release']} | 🐍 Python {server_info['python']}")
         print(f"   💾 Диск: {server_info['disk_usage']} | 🧠 RAM: {server_info['memory']}")
         
-        # Проверка свободного места
         try:
             df = subprocess.check_output(['df', '-h', '/']).decode().strip().split('\n')[1]
             usage_pct = int(df.split()[4].replace('%', ''))
@@ -153,7 +133,7 @@ def run_startup_checks():
         print(f"   ❌ Ошибка: {str(e)[:50]}")
         all_ok = False
     
-    # ---------- 2/14 БАЗА ДАННЫХ ----------
+    # 2/14 БАЗА ДАННЫХ
     print(f"\n🗄️ [2/14] ПРОВЕРКА БАЗЫ ДАННЫХ")
     
     if not os.path.exists(DB_FILE):
@@ -165,11 +145,9 @@ def run_startup_checks():
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             
-            # Проверка целостности
             c.execute("PRAGMA integrity_check")
             integrity = c.fetchone()[0]
             
-            # Подсчёт таблиц
             tables_needed = [
                 'ratings', 'inventory', 'equipment', 'user_achievements',
                 'user_stats', 'user_titles', 'user_active_title', 'user_currency',
@@ -213,7 +191,7 @@ def run_startup_checks():
             print(f"   ❌ Ошибка: {str(e)[:50]}")
             all_ok = False
     
-    # ---------- 3/14 КАРТИНКИ ----------
+    # 3/14 КАРТИНКИ
     print(f"\n🖼️ [3/14] ПРОВЕРКА КАРТИНОК")
     
     if not os.path.exists(IMAGES_DIR):
@@ -231,7 +209,6 @@ def run_startup_checks():
             for f in files if f.endswith(('.jpg', '.png', '.jpeg'))
         )
         
-        # Проверка критических картинок
         critical = ['city_main.jpg', 'profile.jpg', 'shop.jpg', 'tunnel_entrance.jpg']
         missing_critical = [img for img in critical if not os.path.exists(os.path.join(IMAGES_DIR, img))]
         
@@ -243,7 +220,7 @@ def run_startup_checks():
             print(f"   {progress_bar(int((len(critical)-len(missing_critical))/len(critical)*100))} ⚠️")
             warnings.append(f"⚠️ Отсутствуют картинки: {', '.join(missing_critical)}")
     
-    # ---------- 4/14 КОНФИГУРАЦИЯ ----------
+    # 4/14 КОНФИГУРАЦИЯ
     print(f"\n⚙️ [4/14] ПРОВЕРКА КОНФИГУРАЦИИ")
     try:
         if not TOKEN or len(TOKEN) < 30:
@@ -258,10 +235,10 @@ def run_startup_checks():
         print(f"   ❌ Ошибка: {str(e)[:50]}")
         all_ok = False
     
-    # ---------- 5/14 МОДУЛИ ----------
+    # 5/14 МОДУЛИ
     print(f"\n📦 [5/14] ПРОВЕРКА МОДУЛЕЙ")
     modules = [
-        ("game_rat", "game_rat.py"), ("profile", "profile.py"),
+        ("profile", "profile.py"),
         ("commands", "commands.py"), ("callbacks", "callbacks.py"),
         ("inventory", "inventory.py"), ("items", "items.py"),
         ("shop", "shop.py"), ("daily", "daily.py"),
@@ -296,7 +273,7 @@ def run_startup_checks():
         print(f"   ❌ Проблемы: {', '.join(failed_modules)}")
         all_ok = False
     
-    # ---------- 6/14 ПРЕДМЕТЫ ----------
+    # 6/14 ПРЕДМЕТЫ
     print(f"\n🎒 [6/14] ПРОВЕРКА ПРЕДМЕТОВ")
     try:
         from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, CHESTS, RECIPES, ENCHANT_SCROLLS
@@ -309,7 +286,7 @@ def run_startup_checks():
         print(f"   ❌ Ошибка: {str(e)[:50]}")
         all_ok = False
     
-    # ---------- 7/14 ДОСТИЖЕНИЯ ----------
+    # 7/14 ДОСТИЖЕНИЯ
     print(f"\n🏆 [7/14] ПРОВЕРКА ДОСТИЖЕНИЙ")
     try:
         from handlers.achievements_data import ACHIEVEMENTS
@@ -321,7 +298,7 @@ def run_startup_checks():
         print(f"   ❌ Ошибка: {str(e)[:50]}")
         all_ok = False
     
-    # ---------- 8/14 ЗАТОЧКА ----------
+    # 8/14 ЗАТОЧКА
     print(f"\n⚡ [8/14] ПРОВЕРКА ЗАТОЧКИ")
     try:
         from handlers.enchant import get_enchant_level, get_enchant_bonus, get_base_item_id
@@ -339,7 +316,7 @@ def run_startup_checks():
         print(f"   ❌ Ошибка: {str(e)[:50]}")
         all_ok = False
     
-    # ---------- 9/14 ПРАВА ----------
+    # 9/14 ПРАВА
     print(f"\n💾 [9/14] ПРОВЕРКА ПРАВ ДОСТУПА")
     try:
         test_conn = sqlite3.connect(DB_FILE)
@@ -358,7 +335,7 @@ def run_startup_checks():
         warnings.append("⚠️ Проблемы с правами на запись!")
         all_ok = False
     
-    # ---------- 10/14 ТУННЕЛИ ----------
+    # 10/14 ТУННЕЛИ
     print(f"\n🕳️ [10/14] ПРОВЕРКА ТУННЕЛЕЙ")
     try:
         from handlers.tunnel_monsters import TUNNEL_MONSTERS
@@ -374,7 +351,7 @@ def run_startup_checks():
         print(f"   ⚠️ {str(e)[:50]}")
         warnings.append("⚠️ Часть функций туннелей недоступна")
     
-    # ---------- 11/14 ЦЕРКОВЬ ----------
+    # 11/14 ЦЕРКОВЬ
     print(f"\n⛪ [11/14] ПРОВЕРКА ЦЕРКВИ")
     try:
         from handlers.church import church_rest, church_leave
@@ -386,7 +363,7 @@ def run_startup_checks():
         print(f"   ❌ {str(e)[:50]}")
         warnings.append("⚠️ Церковь недоступна")
     
-    # ---------- 12/14 КУЗНИЦА ----------
+    # 12/14 КУЗНИЦА
     print(f"\n🔨 [12/14] ПРОВЕРКА КУЗНИЦЫ")
     try:
         from handlers.crafting import check_craft_success, CraftQuality
@@ -398,7 +375,7 @@ def run_startup_checks():
         print(f"   ❌ {str(e)[:50]}")
         warnings.append("⚠️ Кузница недоступна")
     
-    # ---------- 13/14 TELEGRAM API ----------
+    # 13/14 TELEGRAM API
     print(f"\n🌐 [13/14] ПРОВЕРКА TELEGRAM API")
     try:
         import requests
@@ -422,7 +399,7 @@ def run_startup_checks():
         print(f"   ❌ Нет соединения: {str(e)[:40]}")
         warnings.append("⚠️ Нет подключения к Telegram API")
     
-    # ---------- 14/14 ЭКОНОМИКА ----------
+    # 14/14 ЭКОНОМИКА
     print(f"\n💰 [14/14] ПРОВЕРКА ЭКОНОМИКИ")
     try:
         with sqlite3.connect(DB_FILE) as conn:
@@ -439,14 +416,12 @@ def run_startup_checks():
         print(f"   {progress_bar(50)} ⚠️")
         print(f"   ⚠️ {str(e)[:50]}")
     
-    # ---------- ПРЕДУПРЕЖДЕНИЯ ----------
     if warnings:
         print(f"\n{'='*80}")
         print(f"⚠️ ПРЕДУПРЕЖДЕНИЯ (некритично):")
         for w in warnings:
             print(f"   {w}")
     
-    # ---------- ИТОГ ----------
     print(f"\n{'='*80}")
     if all_ok:
         print(f"                    ✅ ВСЕ СИСТЕМЫ ГОТОВЫ!")
@@ -458,11 +433,9 @@ def run_startup_checks():
 
 
 async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Единый обработчик текстовых сообщений"""
     text = update.message.text.strip() if update.message.text else ""
     user_id = update.effective_user.id
     
-    # Проверка бана
     import sqlite3
     conn = sqlite3.connect("/root/bot/ratings.db")
     c = conn.cursor()
@@ -473,7 +446,6 @@ async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     conn.close()
     
-    # Обработка баг-репорта
     if context.user_data.get("bug_report"):
         from handlers.bug_report import handle_bug_input
         if await handle_bug_input(update, context):
@@ -489,10 +461,6 @@ async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     await clan_message_handler(update, context)
 
-
-async def rat_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Перенаправляет на /profile"""
-    await profile_command(update, context)
 
 def main():
     run_startup_checks()
@@ -523,7 +491,7 @@ def main():
     app.add_handler(CommandHandler("bags", bag_list_command))
     app.add_handler(CommandHandler("bagstats", bag_stats_command))
     
-    # ========== ГОРОД (с картинкой!) ==========
+    # ========== ГОРОД ==========
     async def city_cmd(update, context):
         from keyboards.inline.city import get_city_keyboard
         text = """🏰 *ДОБРО ПОЖАЛОВАТЬ В ГОРОД*
@@ -547,11 +515,6 @@ _Ты — один из жителей этого мира. Выбери сво�
     app.add_handler(CommandHandler("city", city_cmd))
     app.add_handler(CommandHandler("shop", shop_command))
     app.add_handler(CommandHandler("daily", daily_command))
-    
-    # ========== ИГРА ==========
-    app.add_handler(CommandHandler("rat_start", rat_start))
-    app.add_handler(CommandHandler("rat_stop", rat_stop))
-    app.add_handler(CommandHandler("rat_rules", rat_rules))
     
     # ========== ТУННЕЛИ ==========
     app.add_handler(CommandHandler("tunnel", tunnel_command))
@@ -615,77 +578,6 @@ _Ты — один из жителей этого мира. Выбери сво�
     # ========== КАРТОЧКИ ПРЕДМЕТОВ ==========
     app.add_handler(MessageHandler(filters.Regex(r'^/i_[a-zA-Z0-9_+]+$'), item_info_command))
 
-    # ========== КОЛБЭКИ ИГРЫ ==========
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_rat_kill(u, c, int(u.callback_query.data.split('_')[2])),
-        pattern=r"^rat_kill_\d+$"
-    ))
-    app.add_handler(CallbackQueryHandler(handle_rat_kill_none, pattern="^rat_kill_none$"))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_rat_vote(u, c, int(u.callback_query.data.split('_')[2])),
-        pattern=r"^rat_vote_\d+$"
-    ))
-    app.add_handler(CallbackQueryHandler(handle_rat_vote_skip, pattern="^rat_vote_skip$"))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_ghost_vote(u, c, int(u.callback_query.data.split('_')[2])),
-        pattern=r"^ghost_vote_\d+$"
-    ))
-    app.add_handler(CallbackQueryHandler(show_consumables_menu, pattern="^use_item_menu$"))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_use_consumable(u, c, u.callback_query.data.split('_')[2]),
-        pattern=r"^use_consumable_.*"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, u.callback_query.data.split('_')[2]),
-        pattern=r"^item_menu_.*"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_item_target_selection(u, c, 
-            item_id=u.callback_query.data.split('_')[2],
-            target_id=int(u.callback_query.data.split('_')[3])
-        ),
-        pattern=r"^item_target_.*"
-    ))
-    app.add_handler(CallbackQueryHandler(show_day_shot_menu, pattern="^day_shot_menu$"))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_day_shot(u, c, int(u.callback_query.data.split('_')[2])),
-        pattern=r"^day_shot_\d+$"
-    ))
-    app.add_handler(CallbackQueryHandler(handle_dead_message, pattern="^dead_message$"))
-    app.add_handler(CallbackQueryHandler(show_chests_menu, pattern="^chests_menu$"))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: handle_open_chest(u, c, u.callback_query.data.split('_')[2]),
-        pattern=r"^open_chest_.*"
-    ))
-    
-    # ========== СПОСОБНОСТИ ==========
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, "reveal_role_temp"),
-        pattern="^reveal_role_menu$"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, "awaken_temp"),
-        pattern="^awaken_menu$"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, "catapult_temp"),
-        pattern="^catapult_menu$"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, "net_trap_temp"),
-        pattern="^net_trap_menu$"
-    ))
-    app.add_handler(CallbackQueryHandler(
-        lambda u, c: show_player_selection_for_item(u, c, "trap_launch_temp"),
-        pattern="^trap_launch_menu$"
-    ))
-    
-    # ========== ЛОББИ ==========
-    app.add_handler(CallbackQueryHandler(handle_lobby_join, pattern="^rat_lobby_join$"))
-    app.add_handler(CallbackQueryHandler(handle_lobby_leave, pattern="^rat_lobby_leave$"))
-    app.add_handler(CallbackQueryHandler(handle_lobby_start, pattern="^rat_lobby_start$"))
-    app.add_handler(CallbackQueryHandler(back_to_game, pattern="^back_to_game$"))
-
     # ========== ОСНОВНОЙ КОЛБЭК ==========
     app.add_handler(CallbackQueryHandler(button_callback))
     
@@ -706,7 +598,7 @@ _Ты — один из жителей этого мира. Выбери сво�
         try:
             text = f"""🟢 *РАТЛЯНДИЯ ЗАПУЩЕНА*
 
-_Сервер пробудился, туннели открыты, крысы зашевелились._
+_Сервер пробудился, туннели открыты._
 
 🕐 {datetime.now().strftime('%d.%m.%Y %H:%M')} UTC
 ⚡ Статус: Онлайн
@@ -722,98 +614,13 @@ _Добро пожаловать в Подземное Царство!_"""
     print("📱 @testpasha_bot")
     print("🗄️ SQLite активен!")
     print("🏰 /city | 🏪 /shop | 🎁 /daily | 🎲 /dice | 👥 /clan | 🕳️ /tunnel")
-    print("⚒️ /forge | ⛪ /church | 🏆 /top | 📜 /history | ⚡ /titles | 📊 /me")
+    print("⚒️ /forge | ⛪ /church | 🏆 /top | 📜 /history | ⚡ /titles")
     print("=" * 80)
 
     app.run_polling(drop_pending_updates=True)
 
 
-async def handle_lobby_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    user_name = query.from_user.full_name
-    chat_id = query.message.chat_id
-    
-    game = active_games.get(chat_id)
-    if not game or game.phase != "lobby":
-        await query.answer("❌ Игра уже началась!", show_alert=True)
-        return
-    
-    if game.add_player(user_id, user_name):
-        await query.answer("✅ Ты присоединился!")
-        keyboard = [
-            [InlineKeyboardButton("✅ Присоединиться", callback_data="rat_lobby_join"),
-             InlineKeyboardButton("👋 Выйти", callback_data="rat_lobby_leave")],
-            [InlineKeyboardButton("🎮 Начать игру", callback_data="rat_lobby_start")]
-        ]
-        caption = f"🐀 *РАТЛЯНДИЯ v0.0.5*\n\nИгроков: {len(game.players)}/{MAX_PLAYERS}\nСоздатель: {escape_markdown(game.players[game.creator_id]['name'])}\n\nНажмите кнопку чтобы присоединиться!"
-        try:
-            await query.message.edit_caption(
-                caption=caption,
-                parse_mode=constants.ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        except:
-            pass
-    else:
-        await query.answer("❌ Не удалось присоединиться!", show_alert=True)
-
-
-async def handle_lobby_leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    chat_id = query.message.chat_id
-    
-    game = active_games.get(chat_id)
-    if not game or game.phase != "lobby":
-        await query.answer("❌ Игра уже началась!", show_alert=True)
-        return
-    
-    if game.remove_player(user_id):
-        await query.answer("👋 Ты вышел!")
-        keyboard = [
-            [InlineKeyboardButton("✅ Присоединиться", callback_data="rat_lobby_join"),
-             InlineKeyboardButton("👋 Выйти", callback_data="rat_lobby_leave")],
-            [InlineKeyboardButton("🎮 Начать игру", callback_data="rat_lobby_start")]
-        ]
-        caption = f"🐀 *РАТЛЯНДИЯ v0.0.5*\n\nИгроков: {len(game.players)}/{MAX_PLAYERS}\nСоздатель: {escape_markdown(game.players[game.creator_id]['name'])}\n\nНажмите кнопку чтобы присоединиться!"
-        try:
-            await query.message.edit_caption(
-                caption=caption,
-                parse_mode=constants.ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        except:
-            pass
-    else:
-        await query.answer("❌ Нельзя выйти (создатель не может выйти)!", show_alert=True)
-
-
-async def handle_lobby_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user_id = query.from_user.id
-    chat_id = query.message.chat_id
-    
-    game = active_games.get(chat_id)
-    if not game or game.phase != "lobby":
-        await query.answer("❌ Игра уже началась!", show_alert=True)
-        return
-    
-    if user_id != game.creator_id:
-        await query.answer("❌ Только создатель может начать!", show_alert=True)
-        return
-    
-    if not game.start_game():
-        await query.answer(f"❌ Нужно минимум {MIN_PLAYERS} игроков!", show_alert=True)
-        return
-    
-    await query.answer("🎮 Игра начинается!")
-    await query.message.delete()
-    await night_phase(context, chat_id)
-
-
 async def join_boss_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /join_boss <код>"""
     args = context.args
     if not args:
         await update.message.reply_text("❌ Укажи код приглашения!\nПример: `/join_boss abc123`", parse_mode=constants.ParseMode.MARKDOWN)

@@ -134,13 +134,21 @@ async def bag_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начать создание баг-репорта"""
     user_id = update.effective_user.id
     
+    # Удаляем команду /bag
+    try:
+        await update.message.delete()
+    except:
+        pass
+    
     context.user_data["bug_report"] = {"step": "description"}
     
-    await update.message.reply_text(
+    msg = await update.message.reply_text(
         "🐛 *НОВЫЙ БАГ-РЕПОРТ*\n\n"
         "Опиши баг подробнее:",
         parse_mode='Markdown'
     )
+    context.user_data["bug_report"]["bot_msg_id"] = msg.message_id
+    logger.info(f"🐛 [{user_id}] Начат баг-репорт")
 
 
 async def handle_bug_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,14 +166,31 @@ async def handle_bug_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bug_data["step"] = "screenshot"
         context.user_data["bug_report"] = bug_data
         
+        # Удаляем сообщение пользователя
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
+        # Удаляем предыдущее сообщение бота
+        if bug_data.get("bot_msg_id"):
+            try:
+                await context.bot.delete_message(chat_id=user_id, message_id=bug_data["bot_msg_id"])
+            except:
+                pass
+        
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("⏭️ Пропустить", callback_data="bug_skip_screenshot")]
         ])
         
-        await update.message.reply_text(
+        msg = await update.message.reply_text(
             "📸 Пришли скриншот бага:",
             reply_markup=keyboard
         )
+        bug_data["bot_msg_id"] = msg.message_id
+        context.user_data["bug_report"] = bug_data
+        
+        logger.info(f"🐛 [{user_id}] Описание бага получено")
         return True
     
     return False
@@ -181,6 +206,19 @@ async def handle_bug_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bug_data = context.user_data["bug_report"]
     
     if bug_data["step"] == "screenshot":
+        # Удаляем фото пользователя
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
+        # Удаляем сообщение бота с просьбой скрина
+        if bug_data.get("bot_msg_id"):
+            try:
+                await context.bot.delete_message(chat_id=user_id, message_id=bug_data["bot_msg_id"])
+            except:
+                pass
+        
         photo = update.message.photo[-1]
         file = await context.bot.get_file(photo.file_id)
         
@@ -192,6 +230,7 @@ async def handle_bug_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bug_data["step"] = "importance"
         context.user_data["bug_report"] = bug_data
         
+        logger.info(f"🐛 [{user_id}] Скриншот получен")
         await show_importance_buttons(update, context)
         return True
     
@@ -213,6 +252,7 @@ async def bug_skip_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["bug_report"] = bug_data
     
     await query.message.delete()
+    logger.info(f"🐛 [{user_id}] Скриншот пропущен")
     await show_importance_buttons(update, context)
 
 
@@ -225,14 +265,16 @@ async def show_importance_buttons(update: Update, context: ContextTypes.DEFAULT_
     ])
     
     if update.callback_query:
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=update.effective_user.id,
             text="⚡ *Выбери важность бага:*",
             parse_mode='Markdown',
             reply_markup=keyboard
         )
+        if context.user_data.get("bug_report"):
+            context.user_data["bug_report"]["bot_msg_id"] = msg.message_id
     else:
-        await update.message.reply_text(
+        msg = await update.message.reply_text(
             "⚡ *Выбери важность бага:*",
             parse_mode='Markdown',
             reply_markup=keyboard
@@ -276,6 +318,16 @@ async def bug_set_importance(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ])
     
     try:
+        # Удаляем сообщение с кнопками важности
+        await query.message.delete()
+        
+        # Удаляем предыдущее сообщение бота
+        if bug_data.get("bot_msg_id"):
+            try:
+                await context.bot.delete_message(chat_id=user_id, message_id=bug_data["bot_msg_id"])
+            except:
+                pass
+        
         if bug_data.get("screenshot_path"):
             with open(bug_data["screenshot_path"], "rb") as photo:
                 msg = await context.bot.send_photo(
@@ -285,6 +337,11 @@ async def bug_set_importance(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     parse_mode='Markdown',
                     reply_markup=keyboard
                 )
+            # Удаляем локальный файл после отправки
+            try:
+                os.remove(bug_data["screenshot_path"])
+            except:
+                pass
         else:
             msg = await context.bot.send_message(
                 chat_id=GROUP_CHAT_ID,
@@ -295,23 +352,37 @@ async def bug_set_importance(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         update_bug_message_id(bug_number, msg.message_id)
         
-        await query.message.delete()
-        await context.bot.send_message(
+        # Отправляем подтверждение и сразу удаляем
+        confirm_msg = await context.bot.send_message(
             chat_id=user_id,
-            text=f"✅ *Баг отправлен!*\n\n"
-                 f"Номер: *#{bug_number}*\n"
+            text=f"✅ *Баг #{bug_number} отправлен!*\n\n"
                  f"Важность: {importance_emoji} {importance_tag}\n"
-                 f"Дата: {report_date}\n\n"
-                 f"_Спасибо за помощь в улучшении игры!_",
+                 f"_Спасибо за помощь!_",
             parse_mode='Markdown'
         )
+        
+        # Удаляем подтверждение через 5 секунд
+        import asyncio
+        asyncio.create_task(delete_after(confirm_msg, 5))
         
         # Очищаем данные
         context.user_data.pop("bug_report", None)
         
+        logger.info(f"🐛 [#{bug_number}] Баг отправлен от @{username}")
+        
     except Exception as e:
-        logger.error(f"Ошибка отправки бага: {e}")
+        logger.error(f"❌ Ошибка отправки бага: {e}")
         await query.answer("❌ Ошибка отправки!", show_alert=True)
+
+
+async def delete_after(msg, seconds: int):
+    """Удалить сообщение через N секунд"""
+    import asyncio
+    await asyncio.sleep(seconds)
+    try:
+        await msg.delete()
+    except:
+        pass
 
 
 async def bug_change_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -401,6 +472,7 @@ async def bug_change_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
     
+    logger.info(f"🐛 [#{bug_number}] Статус изменён на: {status_name}")
     await query.answer(f"✅ Статус: {status_name}")
 
 

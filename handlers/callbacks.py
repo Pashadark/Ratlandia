@@ -7,10 +7,7 @@ import traceback
 import random
 
 sys.path.append('/root/bot')
-from handlers.game_rat import active_games, RatGame
-from telegram_bot_pagination import InlineKeyboardPaginator
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-8s | %(message)s',
@@ -18,7 +15,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ИМПОРТЫ ИЗ PROFILE
 from handlers.profile import (
     profile_command, inventory_command, equipment_command, 
     achievements_command, handle_equip, handle_unequip, handle_use_consumable,
@@ -26,9 +22,8 @@ from handlers.profile import (
     show_available_for_slot, handle_equip_from_list, show_equipment_list_by_slot,
     history_command, history_command_all
 )
-from handlers.bug_report import (
-    bug_skip_screenshot, bug_set_importance, bug_change_status
-)
+from handlers.character import get_character_stats, update_character_stats
+from handlers.bug_report import bug_skip_screenshot, bug_set_importance, bug_change_status
 from handlers.clan import clan_join_menu, clan_achievements_callback
 from handlers.city import city_menu, city_gates_menu, city_church_menu
 from handlers.titles import set_active_title, titles_command
@@ -42,8 +37,8 @@ from handlers.clan import (
     clan_command, clan_top_callback, clan_info_callback,
     clan_create_menu, clan_register, clan_manage,
     clan_members_list, clan_leave, clan_disband,
-    clan_join_menu, clan_promote_select, clan_demote_select,
-    clan_promote_user, clan_demote_user, clan_achievements_callback
+    clan_promote_select, clan_demote_select,
+    clan_promote_user, clan_demote_user
 )
 from handlers.blacksmith import (
     blacksmith_menu, forge_select_recipe, forge_craft, forge_show_resources, 
@@ -51,10 +46,6 @@ from handlers.blacksmith import (
     forge_show_resources_category, forge_show_resources_all
 )
 from handlers.daily import daily_command
-from handlers.game_rat import (
-    show_consumables_menu, handle_use_consumable as game_handle_use_consumable,
-    show_chests_menu, handle_open_chest, rat_rules, night_phase
-)
 from handlers.church import church_rest, church_leave
 from handlers.tunnel_rooms import (
     enter_room, handle_chest_choice, handle_altar_offer,
@@ -70,7 +61,7 @@ from handlers.tunnel_monsters import get_tunnel_run
 from handlers.healing import restore_health_over_time
 from handlers.enchant import perform_enchant_animation
 from handlers.inventory import get_crumbs, spend_crumbs, remove_item
-from handlers.character import get_character_stats, update_character_stats
+from handlers.inventory import show_chests_menu, handle_open_chest, handle_use_consumable_inv
 
 
 def escape_markdown(text: str) -> str:
@@ -110,7 +101,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data == "achievements_compact":
             await achievements_command(update, context, show_all=False)
         elif data == "city_rules":
-            await rat_rules(update, context)
+            from handlers.commands import help_command
+            await help_command(update, context)
         elif data == "set_title_none":
             set_active_title(user_id, None)
             await profile_command(update, context)
@@ -380,7 +372,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_unequip(update, context, slot)
         elif data.startswith("use_consumable_"):
             item_id = data.replace("use_consumable_", "")
-            await handle_use_consumable(update, context, item_id)
+            await handle_use_consumable_inv(update, context, item_id)
         
         # ========== ЗАЛ СЛАВЫ ==========
         elif data == "city_leaderboard":
@@ -498,9 +490,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("coop_attack_"):
             await handle_coop_attack(update, context)
         
-        # ========== КНОПКИ ИГРЫ ==========
+        # ========== КНОПКИ ИГРЫ (заглушки) ==========
         elif data == "use_item_menu":
-            await show_consumables_menu(update, context)
+            await query.answer("🎒 Предметы пока недоступны в этом режиме", show_alert=True)
         elif data == "back_to_game":
             try:
                 await query.message.delete()
