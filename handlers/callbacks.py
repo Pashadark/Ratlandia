@@ -4,6 +4,7 @@ import logging
 import sys
 import asyncio
 import traceback
+import random
 
 sys.path.append('/root/bot')
 from handlers.game_rat import active_games, RatGame
@@ -22,7 +23,11 @@ from handlers.profile import (
     profile_command, inventory_command, equipment_command, 
     achievements_command, handle_equip, handle_unequip, handle_use_consumable,
     handle_inventory_filter, show_filtered_inventory,
-    show_available_for_slot, handle_equip_from_list, show_equipment_list_by_slot
+    show_available_for_slot, handle_equip_from_list, show_equipment_list_by_slot,
+    history_command, history_command_all
+)
+from handlers.bug_report import (
+    bug_skip_screenshot, bug_set_importance, bug_change_status
 )
 from handlers.clan import clan_join_menu, clan_achievements_callback
 from handlers.city import city_menu, city_gates_menu, city_church_menu
@@ -63,6 +68,9 @@ from handlers.tunnel_battle import (
 from handlers.tunnel_coop import send_coop_invite
 from handlers.tunnel_monsters import get_tunnel_run
 from handlers.healing import restore_health_over_time
+from handlers.enchant import perform_enchant_animation
+from handlers.inventory import get_crumbs, spend_crumbs, remove_item
+from handlers.character import get_character_stats, update_character_stats
 
 
 def escape_markdown(text: str) -> str:
@@ -107,10 +115,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             set_active_title(user_id, None)
             await profile_command(update, context)
         elif data == "profile_history":
-            from handlers.profile import history_command
             await history_command(update, context)
         elif data == "profile_history_all":
-            from handlers.profile import history_command_all
             await history_command_all(update, context)
         elif data == "profile_equipment":
             await equipment_command(update, context)
@@ -175,8 +181,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ========== ЗАТОЧКА ==========
         elif data.startswith("enchant_"):
             logger.info(f"⚡ Заточка: data={data}")
-            # Убираем ТОЛЬКО первый "enchant_"
-            data_without_prefix = data[8:]  # "enchant_" = 8 символов
+            data_without_prefix = data[8:]
             
             scroll_id = None
             item_id = None
@@ -188,13 +193,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     item_id = data_without_prefix[:-(len(sid)+1)]
                     break
             
-            logger.info(f"⚡ Разобрано: item_id={item_id}, scroll_id={scroll_id}")
-            
             if not scroll_id or not item_id:
                 await query.answer("❌ Ошибка: неверный формат заточки!", show_alert=True)
                 return
-            
-            from handlers.enchant import perform_enchant_animation
             
             scroll_type = "normal"
             if "blessed" in scroll_id:
@@ -205,15 +206,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("⚡ Заточка...")
             await query.message.delete()
             
-            from handlers.inventory import remove_item
             remove_item(user_id, scroll_id, 1)
             
-            logger.info(f"⚡ Запуск анимации: user={user_id}, item={item_id}, type={scroll_type}")
             success, message, new_item_id = await perform_enchant_animation(context, user_id, item_id, scroll_type)
-            logger.info(f"⚡ Результат: success={success}, msg={message[:50]}")
             
-            # perform_enchant_animation уже отправила результат с фото
-            # Здесь добавляем только клавиатуру
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔨 Ещё заточка", callback_data="forge_sharpen"),
                  InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
@@ -222,6 +218,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=user_id, text="⚡ *Что дальше?*", 
                                            parse_mode='Markdown', reply_markup=keyboard)
         
+        # ========== АДМИН-ПАНЕЛЬ ==========
+        elif data == "admin_panel" or data == "profile_settings":
+            from handlers.admin import admin_panel
+            await admin_panel(update, context)
+        elif data == "admin_heal_all":
+            from handlers.admin import admin_heal_all
+            await admin_heal_all(update, context)
+        elif data == "admin_crumbs_all":
+            from handlers.admin import admin_crumbs_all
+            await admin_crumbs_all(update, context)
+        elif data == "admin_stats":
+            from handlers.admin import admin_stats
+            await admin_stats(update, context)
+        elif data == "admin_ban_list":
+            from handlers.admin import admin_ban_list
+            await admin_ban_list(update, context)
+        elif data.startswith("admin_ban_") or data.startswith("admin_unban_"):
+            from handlers.admin import admin_toggle_ban
+            await admin_toggle_ban(update, context)
+        
+        # ========== РЕПОРТЫ ==========
+        elif data == "bug_skip_screenshot":
+            await bug_skip_screenshot(update, context)
+        elif data.startswith("bug_importance_"):
+            await bug_set_importance(update, context)
+        elif data.startswith("bug_status_"):
+            await bug_change_status(update, context)
+
         # ========== ЦЕРКОВЬ ==========
         elif data == "church_rest":
             await church_rest(update, context)
@@ -278,7 +302,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             is_reroll = parts[1] == "1"
             
             if is_reroll:
-                from handlers.inventory import get_crumbs, spend_crumbs
                 crumbs = get_crumbs(user_id)
                 if crumbs < 5000:
                     await query.answer("❌ Нужно 5000 крошек для смены класса!", show_alert=True)
@@ -295,7 +318,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }
             
             if class_name in class_stats:
-                from handlers.character import get_character_stats, update_character_stats
                 stats_base = get_character_stats(user_id)
                 bonuses = class_stats[class_name]
                 
@@ -329,7 +351,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode='Markdown', reply_markup=keyboard
                 )
         elif data == "change_class_menu":
-            from handlers.inventory import get_crumbs
             crumbs = get_crumbs(user_id)
             if crumbs < 5000:
                 await query.answer("❌ Нужно 5000 крошек для смены класса!", show_alert=True)
@@ -459,7 +480,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("tunnel_attack_"):
             body_part = data.replace("tunnel_attack_", "")
             if body_part == "random":
-                import random
                 body_part = random.choice(["head", "paws", "body", "tail"])
             await handle_tunnel_attack(update, context, body_part)
         elif data == "tunnel_flee_new":

@@ -21,6 +21,7 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
+from handlers.bug_report import bag_command, handle_bug_input, handle_bug_photo, bag_stats_command, bag_list_command
 
 from config import TOKEN, LOG_FILE, MIN_PLAYERS, MAX_PLAYERS
 from handlers.commands import start, help_command, rat_top, crumbs_command, handle_nickname_input
@@ -459,21 +460,31 @@ def run_startup_checks():
 async def smart_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Единый обработчик текстовых сообщений"""
     text = update.message.text.strip() if update.message.text else ""
+    user_id = update.effective_user.id
+    
+    # Проверка бана
+    import sqlite3
+    conn = sqlite3.connect("/root/bot/ratings.db")
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS banned_users (user_id INTEGER PRIMARY KEY, nickname TEXT, banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    c.execute("SELECT user_id FROM banned_users WHERE user_id = ?", (user_id,))
+    if c.fetchone():
+        conn.close()
+        return
+    conn.close()
+    
+    # Обработка баг-репорта
+    if context.user_data.get("bug_report"):
+        from handlers.bug_report import handle_bug_input
+        if await handle_bug_input(update, context):
+            return
     
     if context.user_data.get("awaiting_nickname"):
         await handle_nickname_input(update, context)
         return
     
-    if re.search(r'(?i)шпите', text):
-        await shpite_handler(update, context)
-        return
-    
     if context.user_data.get("awaiting_bet"):
         await handle_bet_input(update, context)
-        return
-    
-    if 'instagram.com' in text:
-        await handle_message(update, context)
         return
     
     await clan_message_handler(update, context)
@@ -508,7 +519,9 @@ def main():
     app.add_handler(CommandHandler("achievements", achievements_command))
     app.add_handler(CommandHandler("crumbs", crumbs_command))
     app.add_handler(CommandHandler("top", rat_top))
-    app.add_handler(CommandHandler("me", rat_me))
+    app.add_handler(CommandHandler("bag", bag_command))
+    app.add_handler(CommandHandler("bags", bag_list_command))
+    app.add_handler(CommandHandler("bagstats", bag_stats_command))
     
     # ========== ГОРОД (с картинкой!) ==========
     async def city_cmd(update, context):
@@ -678,6 +691,9 @@ _Ты — один из жителей этого мира. Выбери сво�
     
     # ========== ТУННЕЛИ (колбэки) ==========
     register_tunnel_handlers(app)
+
+    # ========== ОБРАБОТЧИК ФОТО ДЛЯ БАГ-РЕПОРТОВ ==========
+    app.add_handler(MessageHandler(filters.PHOTO, handle_bug_photo))
 
     # ========== ТЕКСТОВЫЕ СООБЩЕНИЯ ==========
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, smart_text_handler))
