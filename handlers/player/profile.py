@@ -12,12 +12,12 @@ from handlers.inventory import (
     get_level_progress, equip_item, unequip_item, use_consumable, get_crumbs,
     get_available_chests, format_temp_effects, get_active_temp_effects
 )
+from core.restore import get_current_hp, get_current_mana, get_hp_restore_info, get_mana_restore_info
 from handlers.inventory import get_action_history
 from handlers.items import ALL_ITEMS, EQUIPMENT, CONSUMABLES, EQUIPMENT_SLOTS, CHESTS, WEAPON_DAMAGE
 from handlers.achievements_data import ACHIEVEMENTS
 from handlers.titles import get_active_title, check_and_unlock_titles
 from handlers.character import get_character_stats, sync_level_and_points
-from handlers.healing import restore_health_over_time
 from handlers.tunnel_monsters import get_tunnel_run
 from handlers.tunnel_effects import get_active_blessings
 from handlers.effects import get_player_effects
@@ -174,12 +174,23 @@ def format_profile_text(user_name: str, rating: dict, equipment: dict, achieveme
         
         defense_text = f"🛡 Защита: *{defense}*"
         
-        # Расчёт маны
-        mana = base_stats.get('mana', 200)
+        # Расчёт маны через core.restore
+        mana = get_current_mana(user_id)
         max_mana = base_stats.get('max_mana', 200)
         mana_text = f"🔮 Мана: *{mana}/{max_mana}*"
         
-        health_text = f"❤️ Здоровье: *{base_stats['current_health']}/{base_stats['max_health']}*"
+        # Расчёт здоровья через core.restore
+        current_hp = get_current_hp(user_id)
+        max_hp = base_stats['max_health']
+        _, _, hours_to_full = get_hp_restore_info(user_id)
+        health_text = f"❤️ Здоровье: *{current_hp}/{max_hp}*"
+        if current_hp < max_hp and hours_to_full > 0:
+            hours = int(hours_to_full)
+            mins = int((hours_to_full - hours) * 60)
+            if hours > 0:
+                health_text += f"\n⏳ Полное через: ~{hours}ч {mins}мин"
+            else:
+                health_text += f"\n⏳ Полное через: ~{mins}мин"
         
         # Класс из базы
         player_class_db = base_stats.get('player_class', 'warrior')
@@ -261,7 +272,6 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(text)
             return
-        restore_health_over_time(user_id, context)
         check_and_unlock_titles(user_id)
         text = format_profile_text(user_name, rating, equipment, achievements, inventory, xp, level, xp_in_level, xp_needed, user_id)
         keyboard = get_profile_keyboard(user_name, level, rating['wins'])

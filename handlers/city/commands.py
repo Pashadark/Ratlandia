@@ -6,7 +6,7 @@ from telegram import constants
 import sys
 sys.path.append('/root/bot')
 from keyboards.inline.city import get_city_keyboard, get_gates_keyboard
-from handlers.church import city_church_menu, church_rest, church_leave
+from handlers.city.church import city_church_menu, church_rest, church_leave
 
 
 async def city_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):

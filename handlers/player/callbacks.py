@@ -15,8 +15,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from handlers.profile import (
-    profile_command, inventory_command, equipment_command, 
+from handlers.dice.dice import (
+    tavern_main_menu, tavern_dice_menu_handler, tavern_fight_menu_handler,
+    tavern_challenge_handler, tavern_accept_fight, tavern_decline_fight,
+    tavern_punch_handler, tavern_eavesdrop_handler,
+    tavern_race_menu_handler, tavern_race_pick_handler, tavern_race_start_handler,
+)
+from handlers.player.profile import (
+    profile_command, inventory_command, equipment_command,
     achievements_command, handle_equip, handle_unequip, handle_use_consumable,
     handle_inventory_filter, show_filtered_inventory,
     show_available_for_slot, handle_equip_from_list, show_equipment_list_by_slot,
@@ -27,7 +33,7 @@ from handlers.bug_report import bug_skip_screenshot, bug_set_importance, bug_cha
 from handlers.clan import clan_join_menu, clan_achievements_callback
 from handlers.city import city_menu, city_gates_menu, city_church_menu
 from handlers.titles import set_active_title, titles_command
-from handlers.tunnel import show_stats_menu, show_tunnel_menu, start_new_run, upgrade_stat_callback
+from handlers.game.commands import show_stats_menu, show_tunnel_menu, start_new_run, upgrade_stat_callback
 from handlers.shop import (
     shop_buy_menu, shop_sell_menu, shop_command, handle_shop_sell,
     shop_category, handle_shop_buy, handle_shop_page
@@ -41,12 +47,12 @@ from handlers.clan import (
     clan_promote_user, clan_demote_user
 )
 from handlers.blacksmith import (
-    blacksmith_menu, forge_select_recipe, forge_craft, forge_show_resources, 
-    forge_show_recipes, forge_sharpen, forge_engrave, forge_fortune, 
+    blacksmith_menu, forge_select_recipe, forge_craft, forge_show_resources,
+    forge_show_recipes, forge_sharpen, forge_engrave, forge_fortune,
     forge_show_resources_category, forge_show_resources_all
 )
 from handlers.daily import daily_command
-from handlers.church import church_rest, church_leave
+from handlers.city.church import church_rest, church_leave
 from handlers.tunnel_rooms import (
     enter_room, handle_chest_choice, handle_altar_offer,
     process_room_transition, process_skip_room, go_home
@@ -58,7 +64,6 @@ from handlers.tunnel_battle import (
 )
 from handlers.tunnel_coop import send_coop_invite
 from handlers.tunnel_monsters import get_tunnel_run
-from handlers.healing import restore_health_over_time
 from handlers.enchant import perform_enchant_animation
 from handlers.inventory import get_crumbs, spend_crumbs, remove_item
 from handlers.inventory import show_chests_menu, handle_open_chest, handle_use_consumable_inv
@@ -75,16 +80,15 @@ def escape_markdown(text: str) -> str:
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     data = query.data
     user_id = query.from_user.id
     chat_id = update.effective_chat.id
     user_name = query.from_user.full_name
-    
-    restore_health_over_time(user_id, context)
-    
+
+
     logger.info(f"🔘 Нажата кнопка: {data} от user_id={user_id}")
-    
+
     try:
         # ========== ПРОФИЛЬ ==========
         if data == "profile_achievements":
@@ -127,7 +131,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             filter_type = parts[0]
             page = int(parts[1]) if len(parts) > 1 else 1
             await show_filtered_inventory(update, context, user_id, filter_type, page)
-        
+
         # ========== МАГАЗИН ==========
         elif data == "shop_buy_menu":
             await shop_buy_menu(update, context)
@@ -141,7 +145,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("shop_cat_"):
             category = data.replace("shop_cat_", "")
             await shop_category(update, context, category)
-        
+
         # ========== КУЗНИЦА ==========
         elif data == "city_forge":
             await blacksmith_menu(update, context)
@@ -169,47 +173,39 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("forge_res_cat_"):
             category = data.replace("forge_res_cat_", "")
             await forge_show_resources_category(update, context, category)
-        
+
         # ========== ЗАТОЧКА ==========
         elif data.startswith("enchant_"):
             logger.info(f"⚡ Заточка: data={data}")
             data_without_prefix = data[8:]
-            
             scroll_id = None
             item_id = None
-            for sid in ["blessed_scroll_weapon", "blessed_scroll_armor", 
+            for sid in ["blessed_scroll_weapon", "blessed_scroll_armor",
                          "crystal_scroll_weapon", "crystal_scroll_armor",
                          "enchant_scroll_weapon", "enchant_scroll_armor"]:
                 if data_without_prefix.endswith("_" + sid):
                     scroll_id = sid
                     item_id = data_without_prefix[:-(len(sid)+1)]
                     break
-            
             if not scroll_id or not item_id:
                 await query.answer("❌ Ошибка: неверный формат заточки!", show_alert=True)
                 return
-            
             scroll_type = "normal"
             if "blessed" in scroll_id:
                 scroll_type = "blessed"
             elif "crystal" in scroll_id:
                 scroll_type = "crystal"
-            
             await query.answer("⚡ Заточка...")
             await query.message.delete()
-            
             remove_item(user_id, scroll_id, 1)
-            
             success, message, new_item_id = await perform_enchant_animation(context, user_id, item_id, scroll_type)
-            
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔨 Ещё заточка", callback_data="forge_sharpen"),
                  InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
             ])
-            
-            await context.bot.send_message(chat_id=user_id, text="⚡ *Что дальше?*", 
+            await context.bot.send_message(chat_id=user_id, text="⚡ *Что дальше?*",
                                            parse_mode='Markdown', reply_markup=keyboard)
-        
+
         # ========== АДМИН-ПАНЕЛЬ ==========
         elif data == "admin_panel" or data == "profile_settings":
             from handlers.admin import admin_panel
@@ -229,7 +225,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("admin_ban_") or data.startswith("admin_unban_"):
             from handlers.admin import admin_toggle_ban
             await admin_toggle_ban(update, context)
-        
+
         # ========== РЕПОРТЫ ==========
         elif data == "bug_skip_screenshot":
             await bug_skip_screenshot(update, context)
@@ -243,7 +239,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await church_rest(update, context)
         elif data == "church_leave":
             await church_leave(update, context)
-        
+
         # ========== ЭКИПИРОВКА ==========
         elif data.startswith("change_slot_"):
             slot = data.replace("change_slot_", "")
@@ -266,18 +262,61 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             category = parts[0]
             page = int(parts[1]) if len(parts) > 1 else 0
             await handle_shop_page(update, context, category, page)
-        
+
         # ========== ТАВЕРНА ==========
         elif data == "profile_dice":
-            from handlers.dice import dice_command
-            await dice_command(update, context)
+            logger.info(f"🎲 [TAVERN] Главное меню | user={user_id}")
+            await tavern_main_menu(update, context)
+        elif data == "tavern_dice":
+            logger.info(f"🎲 [DICE] Меню костей | user={user_id}")
+            await tavern_dice_menu_handler(update, context)
+        elif data == "tavern_fight_menu":
+            logger.info(f"👊 [FIGHT] Меню драк | user={user_id}")
+            try:
+                await tavern_fight_menu_handler(update, context)
+                logger.info(f"👊 [FIGHT] Меню драк ОК | user={user_id}")
+            except Exception as e:
+                logger.error(f"👊 [FIGHT] Ошибка: {e}")
+                logger.error(traceback.format_exc())
+        elif data.startswith("tavern_challenge_"):
+            target_id = int(data.replace("tavern_challenge_", ""))
+            logger.info(f"👊 [FIGHT] Вызов {target_id} | от user={user_id}")
+            await tavern_challenge_handler(update, context, target_id)
+        elif data.startswith("tavern_accept_"):
+            fight_id = data.replace("tavern_accept_", "")
+            logger.info(f"👊 [FIGHT] Принятие боя {fight_id} | user={user_id}")
+            await tavern_accept_fight(update, context, fight_id)
+        elif data.startswith("tavern_decline_"):
+            fight_id = data.replace("tavern_decline_", "")
+            logger.info(f"👊 [FIGHT] Отказ {fight_id} | user={user_id}")
+            await tavern_decline_fight(update, context, fight_id)
+        elif data.startswith("tavern_punch_"):
+            fight_id = data.replace("tavern_punch_", "")
+            logger.info(f"👊 [FIGHT] Удар {fight_id} | user={user_id}")
+            await tavern_punch_handler(update, context, fight_id)
+        elif data == "tavern_eavesdrop":
+            logger.info(f"👂 [EAVESDROP] | user={user_id}")
+            await tavern_eavesdrop_handler(update, context)
+        elif data == "tavern_race_menu":
+            logger.info(f"🪳 [RACE] Меню бегов | user={user_id}")
+            await tavern_race_menu_handler(update, context)
+        elif data.startswith("tavern_race_pick_"):
+            roach_id = data.replace("tavern_race_pick_", "")
+            logger.info(f"🪳 [RACE] Выбор {roach_id} | user={user_id}")
+            await tavern_race_pick_handler(update, context, roach_id)
+        elif data.startswith("tavern_race_start_"):
+            parts = data.split("_")
+            roach_id = parts[3]
+            bet = int(parts[4])
+            logger.info(f"🪳 [RACE] Забег {roach_id} ставка {bet} | user={user_id}")
+            await tavern_race_start_handler(update, context, roach_id, bet)
         elif data.startswith("dice_"):
             from handlers.dice import dice_callback
             await dice_callback(update, context)
         elif data == "beer_buff":
             from handlers.dice import buy_beer
             await buy_beer(update, context)
-        
+
         # ========== ВЫБОР КЛАССА ==========
         elif data == "class_selection_back":
             await query.message.delete()
@@ -292,14 +331,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parts = data.replace("class_confirm_", "").split("_")
             class_name = parts[0]
             is_reroll = parts[1] == "1"
-            
             if is_reroll:
                 crumbs = get_crumbs(user_id)
                 if crumbs < 5000:
                     await query.answer("❌ Нужно 5000 крошек для смены класса!", show_alert=True)
                     return
                 spend_crumbs(user_id, 5000)
-            
             class_stats = {
                 "warrior": {"strength": 2, "agility": 1, "intelligence": 1, "max_health": 0, "max_mana": 0},
                 "tank": {"strength": 3, "agility": 1, "intelligence": 0, "max_health": 50, "max_mana": 0},
@@ -308,12 +345,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "berserker": {"strength": 3, "agility": 2, "intelligence": 0, "max_health": -20, "max_mana": 0},
                 "archer": {"strength": 1, "agility": 3, "intelligence": 1, "max_health": 0, "max_mana": 0},
             }
-            
             if class_name in class_stats:
                 stats_base = get_character_stats(user_id)
                 bonuses = class_stats[class_name]
-                
-                update_character_stats(user_id, 
+                update_character_stats(user_id,
                     strength=stats_base['strength'] + bonuses['strength'],
                     agility=stats_base['agility'] + bonuses['agility'],
                     intelligence=stats_base['intelligence'] + bonuses['intelligence'],
@@ -323,20 +358,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     mana=stats_base['mana'] + bonuses['max_mana'],
                     player_class=class_name
                 )
-                
                 class_names_ru = {
                     "warrior": "⚔️ Воин", "tank": "🛡️ Танк", "mage": "🔮 Маг",
                     "rogue": "🗡️ Разбойник", "berserker": "💪 Берсерк", "archer": "🏹 Лучник"
                 }
-                
                 await query.answer(f"✅ Класс: {class_names_ru[class_name]}!" + (" (-5000 🧀)" if is_reroll else ""))
                 await query.message.delete()
-                
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("👤 Профиль", callback_data="back_to_profile"),
                      InlineKeyboardButton("🏰 В город", callback_data="city_menu")],
                 ])
-                
                 await context.bot.send_message(
                     chat_id=user_id,
                     text=f"🎉 *КЛАСС ВЫБРАН!*\n\nТы стал *{class_names_ru[class_name]}*!\n\n_Характеристики обновлены. Проверь профиль._",
@@ -350,7 +381,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.delete()
             from handlers.class_selection import send_class_selection
             await send_class_selection(context, user_id, is_reroll=True)
-        
+
         # ========== ПРОФИЛЬ И ТИТУЛЫ ==========
         elif data == "back_to_profile" or data == "profile_back":
             await profile_command(update, context)
@@ -373,11 +404,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data.startswith("use_consumable_"):
             item_id = data.replace("use_consumable_", "")
             await handle_use_consumable_inv(update, context, item_id)
-        
+
         # ========== ЗАЛ СЛАВЫ ==========
         elif data == "city_leaderboard":
             await hall_of_fame(update, context)
-        
+
         # ========== СУНДУКИ ==========
         elif data == "chests_menu":
             await show_chests_menu(update, context)
@@ -386,7 +417,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not chest_id.endswith("_chest"):
                 chest_id = f"{chest_id}_chest"
             await handle_open_chest(update, context, chest_id)
-        
+
         # ========== ЛОКАЦИИ ==========
         elif data == "city_church":
             await city_church_menu(update, context)
@@ -407,7 +438,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = await context.bot.send_message(chat_id=user_id, text="🪦 *СТАРОЕ КЛАДБИЩЕ*\n\n_Древние могильные плиты покоятся в тишине. Земля здесь пропитана тёмной магией. Пока недоступно._", parse_mode=constants.ParseMode.MARKDOWN)
             await asyncio.sleep(3.0)
             await msg.delete()
-        
+
         # ========== КЛАН ==========
         elif data == "profile_clan":
             await clan_command(update, context)
@@ -441,7 +472,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await clan_demote_user(update, context, target_id)
         elif data == "clan_achievements":
             await clan_achievements_callback(update, context)
-        
+
         # ========== ТУННЕЛИ ==========
         elif data == "tunnel_menu":
             await show_tunnel_menu(update, context, user_id)
@@ -489,7 +520,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_coop_defend(update, context)
         elif data.startswith("coop_attack_"):
             await handle_coop_attack(update, context)
-        
+
         # ========== КНОПКИ ИГРЫ (заглушки) ==========
         elif data == "use_item_menu":
             await query.answer("🎒 Предметы пока недоступны в этом режиме", show_alert=True)
@@ -498,10 +529,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.message.delete()
             except:
                 pass
-        
+
         else:
             logger.warning(f"❓ Неизвестная кнопка: {data}")
-    
+
     except Exception as e:
         logger.error(f"❌ Ошибка в button_callback: {e}")
         logger.error(traceback.format_exc())

@@ -13,7 +13,6 @@ from handlers.character import (
     sync_level_and_points, get_tunnel_statistics, get_defeated_bosses,
     get_active_effects
 )
-from handlers.healing import restore_health_over_time
 
 
 from handlers.tunnel_monsters import (
@@ -79,7 +78,6 @@ async def handle_use_potion(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 async def show_tunnel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
     """Показывает главное меню туннелей"""
     
-    restore_health_over_time(user_id, context)
     main_level = get_level(user_id)
     sync_level_and_points(user_id, main_level)
     
@@ -282,7 +280,6 @@ async def show_rest_info(update: Update, context: ContextTypes.DEFAULT_TYPE, use
     query = update.callback_query
     
     # Восстанавливаем здоровье
-    restore_health_over_time(user_id, context)
     stats = get_character_stats(user_id)
     
     text = f"""🛌 *Отдых и восстановление*

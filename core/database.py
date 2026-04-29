@@ -28,13 +28,17 @@ class Database:
     def __init__(self, db_name: str = "ratings"):
         self.db_path = DB_PATHS.get(db_name, DB_PATHS["ratings"])
         self._ensure_db_exists()
+        # Включаем WAL-режим для параллельного доступа
+        with self.get_connection() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
 
     def _ensure_db_exists(self):
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
 
     @contextmanager
     def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
         try:
             yield conn

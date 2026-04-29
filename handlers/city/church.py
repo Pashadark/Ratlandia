@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 from telegram import constants
 import sys
 sys.path.append('/root/bot')
-from handlers.healing import enter_church, leave_church, get_healing_status, restore_health_in_church
+
 from handlers.character import get_character_stats
 
 

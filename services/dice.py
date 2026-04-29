@@ -47,16 +47,26 @@ class DiceService:
     def format_stats_message(self, user_id: int) -> str:
         stats = self.get_player_stats(user_id)
         crumbs = self.get_crumbs(user_id)
+        import random
+        npcs = [
+            "_За стойкой сидит угрюмый Шныр и протирает кружки._",
+            "_Старая Ильяска подмигивает тебе из-за стойки._",
+            "_В углу две крысы играют в кости и громко спорят._",
+            "_У камина дремлет пьяный Крысолов, обнимая пустую кружку._",
+        ]
+        total_profit = stats.total_crumbs_won - stats.total_crumbs_lost
+        profit_emoji = "📈" if total_profit >= 0 else "📉"
         return (
-            f"🎲 *ТАВЕРНА «КРЫСИНЫЙ ХВОСТ»*\n\n"
-            f"🧀 Крошки: *{crumbs}*\n"
-            f"🎯 Игр: *{stats.total_games}* | Побед: *{stats.total_wins}* "
-            f"({stats.win_rate:.1f}%)\n"
-            f"🔥 Серия побед: *{stats.current_win_streak}* | "
-            f"💀 Поражений: *{stats.current_lose_streak}*\n"
-            f"🍀 Удача: {stats.luck_status}\n"
-            f"📊 Всего выиграно: *{stats.total_crumbs_won}* 🧀\n"
-            f"🎁 Ежедневный бонус: {'✅' if stats.daily_bonus_available else '❌'}"
+            f"*Таверна «Крысиный хвост»*\n\n"
+            f"_Тёплый свет масляных ламп, запах эля и жареного сыра. "
+            f"В углу крысы бросают кости, кто-то спорит о ставках._\n"
+            f"{random.choice(npcs)}\n\n"
+            f"🧀 Крошки: *{crumbs:,}*\n"
+            f"🎯 Игр: *{stats.total_games}* | Побед: *{stats.total_wins}* ({stats.win_rate:.1f}%)\n"
+            f"💸 Поражений: *{stats.total_losses}* | Ничьих: *{stats.total_draws}*\n"
+            f"🔥 Серия побед: *{stats.current_win_streak}* | 💀 Поражений подряд: *{stats.current_lose_streak}*\n"
+            f"📊 Выиграно: *{stats.total_crumbs_won:,}* 🧀 | Проиграно: *{stats.total_crumbs_lost:,}* 🧀\n"
+            f"{profit_emoji} Итог: *{total_profit:+,}* 🧀"
         )
 
     def buy_beer(self, user_id: int, beer_cost: int = 50) -> tuple:
@@ -118,6 +128,17 @@ class DiceService:
                              current_lose_streak = 0
                              WHERE user_id = ?''',
                           (result.bet.win_amount, user_id))
+                # Начислить выигрыш
+                self.add_crumbs(user_id, result.bet.win_amount)
+            elif result.bet.is_draw:
+                c.execute('''UPDATE dice_stats SET
+                             total_games = total_games + 1,
+                             total_draws = total_draws + 1,
+                             current_win_streak = 0,
+                             current_lose_streak = 0
+                             WHERE user_id = ?''', (user_id,))
+                # Возврат ставки при ничьей
+                self.add_crumbs(user_id, result.bet.bet_amount)
             else:
                 c.execute('''UPDATE dice_stats SET
                              total_games = total_games + 1,
@@ -127,6 +148,7 @@ class DiceService:
                              current_win_streak = 0
                              WHERE user_id = ?''',
                           (result.bet.bet_amount, user_id))
+                # Крошки уже сняты при ставке, не снимаем повторно
             conn.commit()
 
     def get_tournament_leaders(self, limit: int = 10) -> List[Dict]:

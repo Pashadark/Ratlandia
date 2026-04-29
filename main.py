@@ -26,9 +26,9 @@ import handlers.compat  # noqa
 from handlers.commands import start, help_command, rat_top, crumbs_command, handle_nickname_input
 from handlers.instagram import handle_message, shpite_handler
 from handlers.callbacks import button_callback
-from handlers.tunnel import tunnel_command, register_tunnel_handlers, show_stats_menu, start_new_run
+from handlers.game.commands import tunnel_command, register_tunnel_handlers, show_stats_menu, start_new_run
 from handlers.tunnel_coop import handle_join_boss
-from handlers.profile import (
+from handlers.player.profile import (
     profile_command, inventory_command, achievements_command, equipment_command,
     item_info_command, history_command
 )
@@ -356,7 +356,6 @@ def run_startup_checks():
     print(f"\n⛪ [11/14] ПРОВЕРКА ЦЕРКВИ")
     try:
         from handlers.church import church_rest, church_leave
-        from handlers.healing import restore_health_over_time
         print(f"   {progress_bar(100)} ✅")
         print(f"   🙏 Отдых и лечение активны")
     except Exception as e:

@@ -44,7 +44,6 @@ sys.modules['handlers.clan'] = __import__('handlers.clan.commands', fromlist=['*
 
 # achievements
 sys.modules['handlers.achievements_data'] = __import__('handlers.achievements.data', fromlist=['*'])
-sys.modules['handlers.healing'] = __import__('handlers.achievements.healing', fromlist=['*'])
 sys.modules['handlers.effects'] = __import__('handlers.achievements.effects', fromlist=['*'])
 
 # admin & bug_report
